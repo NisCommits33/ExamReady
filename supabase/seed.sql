@@ -1,0 +1,120 @@
+-- ExamReady Seed Data
+-- Run AFTER 001_initial.sql
+
+-- ── IQ Stats seed ─────────────────────────────────────────────────────────
+insert into iq_stats (type) values
+  ('series'), ('analogy'), ('coding_decoding'), ('direction_distance'),
+  ('logical_reasoning'), ('arithmetic'), ('figure_series'),
+  ('mirror_water'), ('figure_matrix'), ('venn_diagram')
+on conflict (type) do nothing;
+
+-- ── Topics — Paper 1 Section A (17 topics) ───────────────────────────────
+insert into topics (name, paper, section, topic_number, subsections, ai_priority) values
+('Geography of Nepal and natural resources', 1, 'A', '1.1',
+  ARRAY['Major geographical regions','Natural resources','River systems','Climate zones'], 4),
+('Population, environment and climate change', 1, 'A', '1.2',
+  ARRAY['Population statistics','Sustainable development','Urbanization','Pollution','Climate change','Biodiversity'], 4),
+('Office procedures', 1, 'A', '1.3',
+  ARRAY['Registration','Dispatch','Filing','Correspondence','Note writing','Public relations'], 6),
+('Public administration', 1, 'A', '1.4',
+  ARRAY['Introduction','Objectives','Principles'], 5),
+('Air transport and tourism in Nepal', 1, 'A', '1.5',
+  ARRAY['History of aviation in Nepal','Tourism development','Major airports','Airlines'], 7),
+('Ministry of Culture, Tourism and Civil Aviation', 1, 'A', '1.6',
+  ARRAY['Role and functions','Civil aviation policy','Organizational structure'], 7),
+('ICAO and IATA', 1, 'A', '1.7',
+  ARRAY['ICAO history and purpose','ICAO standards (SARPs)','IATA role','Annexes relevant to ARFF'], 9),
+('Science and technology achievements', 1, 'A', '1.8',
+  ARRAY['Recent global achievements','Nepal technology developments','Space exploration','Medical advances'], 3),
+('Current national and international affairs', 1, 'A', '1.9',
+  ARRAY['Politics','Society','Economy','Culture','Sports','Awards','Important personalities'], 3),
+('Civil Aviation Act 2015 BS and Regulations 2052 BS', 1, 'A', '1.10',
+  ARRAY['Key provisions','Objectives','Regulatory framework','Penalties'], 8),
+('Nepal Civil Aviation Authority Act 2053 BS', 1, 'A', '1.11',
+  ARRAY['CAAN establishment','Functions and powers','Organizational structure','Board composition'], 8),
+('Civil Aviation Regulations 2058 BS', 1, 'A', '1.12',
+  ARRAY['Scope','Key regulations','Safety provisions','Licensing'], 8),
+('CAAN Employee Service Conditions and Facilities Regulations 2056 BS', 1, 'A', '1.13',
+  ARRAY['Service conditions','Facilities','Leave provisions','Disciplinary procedures'], 7),
+('CAAN Financial Administration Regulations 2057 BS', 1, 'A', '1.14',
+  ARRAY['Budget process','Financial controls','Procurement','Audit'], 6),
+('CAAN Airport Service Charge Regulations 2078 BS', 1, 'A', '1.15',
+  ARRAY['Service charge categories','Rates','Collection procedures','Exemptions'], 6),
+('Civil Aviation Security Regulations 2073 BS', 1, 'A', '1.16',
+  ARRAY['Security framework','Access control','Screening procedures','Incident response'], 7),
+('Computer and IT applications', 1, 'A', '1.17',
+  ARRAY['Windows basics','Word processing','Spreadsheets','Presentations','Email','Internet','Multimedia'], 5);
+
+-- ── Topics — Paper 1 Section B (2 topics) ────────────────────────────────
+insert into topics (name, paper, section, topic_number, subsections, ai_priority) values
+('Verbal Reasoning Test', 1, 'B', '2.1',
+  ARRAY['Jumbled words','Series completion','Analogy','Classification','Coding-decoding','Matrix',
+        'Ranking order','Direction and distance','Common sense','Logical reasoning',
+        'Statement and conclusions','Arithmetical reasoning','Decimals and fractions',
+        'Percentages','Ratios and averages'], 10),
+('Non-verbal and Abstract Reasoning Test', 1, 'B', '2.2',
+  ARRAY['Figure series','Figure analogy','Figure classification','Figure matrix',
+        'Analytical reasoning','Figure formation','Water images','Mirror images','Venn diagrams'], 10);
+
+-- ── Topics — Paper 2 Section A (9 topics) ────────────────────────────────
+insert into topics (name, paper, section, topic_number, subsections, ai_priority) values
+('Words of Command', 2, 'A', '1',
+  ARRAY['Importance of words of command','Actions and meanings','Drill procedures'], 6),
+('Nomenclature of Equipment', 2, 'A', '2',
+  ARRAY['Appliances and equipment','Ancillaries and accessories','ARFF vehicle components'], 7),
+('Chemistry of Fire', 2, 'A', '3',
+  ARRAY['Combustion of fire','Classification of fire (A/B/C/D/K)','Fire extinction methods',
+        'Heat and temperature','Fire triangle and tetrahedron'], 9),
+('Hose and Hose Fitting', 2, 'A', '4',
+  ARRAY['Types of hose','Use of hose','Care and maintenance','Hose fittings and couplings'], 7),
+('Fire Station Administration', 2, 'A', '5',
+  ARRAY['Roll call procedures','Deployment of crews','Detailing of appliances',
+        'Record keeping','Discipline','Reporting'], 7),
+('Personnel Protective Equipment and SCBA', 2, 'A', '6',
+  ARRAY['Introduction to PPE','Types of PPE','SCBA components','Donning and doffing',
+        'Care and maintenance','Working duration'], 9),
+('Portable Fire Extinguisher', 2, 'A', '7',
+  ARRAY['Purpose','Types (CO2, DCP, Foam, Water)','Operating procedure',
+        'Refilling procedure','Testing schedule','Colour coding'], 8),
+('Extinguishing Agent', 2, 'A', '8',
+  ARRAY['Types of agents','AFFF foam','Dry chemical powder','CO2',
+        'Halon alternatives','Characteristics and use'], 9),
+('Fire Service Ladder', 2, 'A', '9',
+  ARRAY['Types of ladders','Use and handling','Pitching methods',
+        'Testing procedures','Care and maintenance'], 7);
+
+-- ── Topics — Paper 2 Section B (10 topics) ───────────────────────────────
+insert into topics (name, paper, section, topic_number, subsections, ai_priority) values
+('Ropes and Lines', 2, 'B', '10',
+  ARRAY['Types of rope','Knots and hitches','Lines usage','Care and maintenance','Testing'], 7),
+('Fighting Aircraft Fire and Structure Fire', 2, 'B', '11',
+  ARRAY['Types of aircraft crash','Structure fire procedures','Response procedure',
+        'Runway foaming','Dry run vs live fire'], 10),
+('Rescue Operation', 2, 'B', '12',
+  ARRAY['Rescue principles','Rescue tactics','Passenger evacuation',
+        'Casualty handling','Coordination'], 10),
+('Airport Emergency Planning', 2, 'B', '13',
+  ARRAY['Purpose of AEP','Types of emergency','Responding agencies',
+        'Emergency Operations Centre','Airport emergency exercises','Full-scale vs tabletop'], 9),
+('Level of Protection to be Provided', 2, 'B', '14',
+  ARRAY['Airport category determination','ICAO airport categories 1-10',
+        'Amounts of extinguishing agents','Discharge rates',
+        'Response time requirements','Number of vehicles and equipment'], 10),
+('Watch Tower Operation and Communication', 2, 'B', '15',
+  ARRAY['Systems and facilities','Logging system','Alerting system',
+        'Message receiving and dissemination','Phraseology','VHF handling',
+        'Readability check','Message writing and passing'], 9),
+('Familiarization of Aircraft', 2, 'B', '16',
+  ARRAY['Aircraft types at PIA','Aircraft design and construction',
+        'Fuel types and tank locations','Lubricants and hydraulic fluid locations',
+        'Aircraft access and exits','Escape slides',
+        'Fire detection systems','Extinguishing systems'], 9),
+('Safety Management System (SMS)', 2, 'B', '17',
+  ARRAY['General SMS concept','Four pillars of SMS','Components and elements',
+        'Safety culture','Hazard identification','Risk assessment'], 8),
+('Dangerous Goods', 2, 'B', '18',
+  ARRAY['Introduction to DG','IATA DG categories (Class 1-9)','Handling procedures',
+        'Safe transport requirements','Emergency response','Placarding'], 8),
+('Aviation Security', 2, 'B', '19',
+  ARRAY['General security concept','Access control systems','Airside and landside areas',
+        'Airport permits and passes','Security screening','Threat assessment'], 8);

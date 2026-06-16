@@ -1,0 +1,119 @@
+'use client'
+
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { cn } from '@/lib/utils'
+
+interface MarkdownProps {
+  children: string
+  className?: string
+  compact?: boolean
+}
+
+export function Markdown({ children, className, compact = false }: MarkdownProps) {
+  return (
+    <div className={cn(compact && 'text-sm', className)}>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        h1: ({ children }) => (
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-6 mb-3 first:mt-0 pb-2 border-b border-gray-200 dark:border-[#30363D]">
+            {children}
+          </h1>
+        ),
+        h2: ({ children }) => (
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-5 mb-2 first:mt-0">
+            {children}
+          </h2>
+        ),
+        h3: ({ children }) => (
+          <h3 className="text-base font-semibold text-[var(--brand-600)] mt-4 mb-1.5 first:mt-0">
+            {children}
+          </h3>
+        ),
+        p: ({ children }) => (
+          <p className={cn('text-gray-700 dark:text-gray-300 leading-relaxed', compact ? 'mb-2 text-sm' : 'mb-3')}>
+            {children}
+          </p>
+        ),
+        ul: ({ children }) => (
+          <ul className={cn('space-y-1 mb-3 pl-4 text-gray-700 dark:text-gray-300', compact ? 'text-sm' : '')}>
+            {children}
+          </ul>
+        ),
+        ol: ({ children }) => (
+          <ol className={cn('space-y-1 mb-3 pl-4 list-decimal', compact ? 'text-sm' : '')}>
+            {children}
+          </ol>
+        ),
+        li: ({ children }) => (
+          <li className="text-gray-700 dark:text-gray-300 leading-relaxed flex gap-2 items-start">
+            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[var(--brand-600)] shrink-0" />
+            <span>{children}</span>
+          </li>
+        ),
+        // Override li for ordered lists — no bullet dot
+        strong: ({ children }) => (
+          <strong className="font-semibold text-gray-900 dark:text-gray-100">{children}</strong>
+        ),
+        em: ({ children }) => (
+          <em className="italic text-gray-600 dark:text-gray-400">{children}</em>
+        ),
+        code: ({ children, className }) => {
+          const isBlock = className?.includes('language-')
+          if (isBlock) {
+            return (
+              <code className="block bg-gray-900 text-green-400 text-xs rounded-lg p-3 mb-3 overflow-x-auto font-mono leading-relaxed whitespace-pre">
+                {children}
+              </code>
+            )
+          }
+          return (
+            <code className="bg-[var(--brand-50)] text-[var(--brand-800)] text-xs font-mono px-1.5 py-0.5 rounded">
+              {children}
+            </code>
+          )
+        },
+        pre: ({ children }) => <>{children}</>,
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-4 border-[var(--brand-600)] bg-[var(--brand-50)] dark:bg-brand-900/10 pl-4 pr-3 py-2 mb-3 rounded-r-lg text-sm text-gray-700 dark:text-gray-300 italic">
+            {children}
+          </blockquote>
+        ),
+        hr: () => <hr className="border-gray-200 dark:border-[#30363D] my-4" />,
+        table: ({ children }) => (
+          <div className="overflow-x-auto mb-3">
+            <table className="w-full text-sm border-collapse">{children}</table>
+          </div>
+        ),
+        thead: ({ children }) => (
+          <thead className="bg-[var(--brand-50)] dark:bg-brand-900/20">{children}</thead>
+        ),
+        th: ({ children }) => (
+          <th className="px-3 py-2 text-left font-semibold text-[var(--brand-800)] border border-gray-200 dark:border-[#30363D] text-xs uppercase tracking-wide">
+            {children}
+          </th>
+        ),
+        td: ({ children }) => (
+          <td className="px-3 py-2 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#30363D]">{children}</td>
+        ),
+        tr: ({ children }) => (
+          <tr className="even:bg-gray-50 dark:even:bg-[#1C2128]">{children}</tr>
+        ),
+        a: ({ children, href }) => (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[var(--brand-600)] underline underline-offset-2 hover:text-[var(--brand-800)]"
+          >
+            {children}
+          </a>
+        ),
+      }}
+    >
+      {children}
+    </ReactMarkdown>
+    </div>
+  )
+}

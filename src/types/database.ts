@@ -19,11 +19,14 @@ export interface Topic {
   section: SectionType
   topic_number: string
   subsections: string[]
+  // Per-user progress (lives in user_topic_progress, merged at fetch time)
   status: TopicStatus
-  ai_priority: number
   is_flagged: boolean
   last_studied: string | null
   mcq_best_score: number | null
+  ai_priority: number
+  exam_id?: string | null
+  section_id?: string | null
   created_at: string
 }
 
@@ -40,7 +43,6 @@ export interface Session {
   id: string
   date: string
   topic_id: string | null
-  paper: PaperType | null
   duration_mins: number
   notes: string | null
   created_at: string
@@ -67,6 +69,7 @@ export interface TopicNote {
   study_note: string | null
   key_points: string | null
   exam_tips: string | null
+  official_source: string | null
   model_answer_5mark: string | null
   model_answer_10mark: string | null
   generated_at: string | null
@@ -98,6 +101,7 @@ export interface IQQuestion {
   type: IQType
   category: IQCategory
   question_text: string
+  question_figure?: string | null
   options: { A: string; B: string; C: string; D: string }
   correct_answer: string
   difficulty: Difficulty
@@ -130,6 +134,104 @@ export interface WeeklyReport {
   content: string
   risk_topics: string[]
   generated_at: string
+}
+
+export type SectionKind = 'mcq_study' | 'aptitude' | 'written'
+
+export interface ExamConfig {
+  pass_mark?: number
+  negative_marking?: number
+  mcq_time_limit_s?: number
+  iq_time_target_s?: number
+  rescue_threshold_days?: number
+  default_exam_date?: string
+}
+
+export interface Exam {
+  id: string
+  slug: string | null
+  name: string
+  body: string | null
+  description: string | null
+  is_public: boolean
+  created_by: string | null
+  cloned_from: string | null
+  config: ExamConfig
+  created_at: string
+}
+
+export interface ExamSection {
+  id: string
+  exam_id: string
+  name: string
+  kind: SectionKind
+  sort_order: number
+  config: Record<string, unknown>
+}
+
+export interface Enrollment {
+  id: string
+  user_id: string
+  exam_id: string
+  exam_date: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export type DrillSection = 'gk' | 'iq' | 'arff'
+
+export interface DrillResult {
+  id: string
+  section: DrillSection
+  topic_id: string | null
+  subtopic_id?: string | null
+  score: number
+  total: number
+  created_at: string
+  topics?: { name: string } | null
+}
+
+export interface Subtopic {
+  id: string
+  topic_id: string
+  name: string
+  sort_order: number
+  study_note: string | null
+  key_points: string | null
+  official_source: string | null
+  is_dynamic: boolean
+  generated_at: string | null
+  created_at: string
+}
+
+export interface ActivityLog {
+  id: string
+  action: string
+  topic_id: string | null
+  meta: Record<string, unknown>
+  created_at: string
+}
+
+export interface FlashcardReview {
+  card_key: string
+  topic_id: string | null
+  front: string
+  back: string
+  interval_days: number
+  ease: number
+  due_date: string
+  last_reviewed: string | null
+  review_count: number
+  created_at: string
+}
+
+export interface KeyNumber {
+  id: string
+  topic_id: string | null
+  fact: string
+  value: string
+  created_at: string
+  topics?: { name: string } | null
 }
 
 export interface TopicFlag {

@@ -2,31 +2,33 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, BookOpen, Brain, Globe, Flame, Calendar, BarChart3, LogOut, PlusCircle } from 'lucide-react'
-import { cn, daysToExam, formatDate } from '@/lib/utils'
-import { EXAM_NAME, EXAM_DATE } from '@/lib/constants'
-import { createClient } from '@/lib/supabase/client'
+import { Home, Brain, Globe, Flame, Calendar, BarChart3, PlusCircle, LogOut, Hash, BookOpen, User } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { ExamCountdown } from '@/components/shared/ExamCountdown'
+import type { NavSection } from './Shell'
 
-const NAV = [
-  { href: '/',          label: 'Home',        Icon: Home      },
-  { href: '/topics',    label: 'Topics',      Icon: BookOpen  },
-  { href: '/iq',        label: 'IQ Practice', Icon: Brain     },
-  { href: '/gk',        label: 'Gen. Knowledge', Icon: Globe  },
-  { href: '/arff',      label: 'ARFF Drills', Icon: Flame     },
-  { href: '/timetable', label: 'Timetable',   Icon: Calendar  },
-  { href: '/progress',  label: 'Progress',    Icon: BarChart3 },
-]
+const KIND_ICON: Record<string, typeof Home> = { mcq_study: Globe, aptitude: Brain, written: Flame }
 
 interface SidebarProps {
   onLogSession?: () => void
+  examName?: string
+  sections?: NavSection[]
 }
 
-export function Sidebar({ onLogSession }: SidebarProps) {
+export function Sidebar({ onLogSession, examName = 'ExamReady', sections = [] }: SidebarProps) {
+  const sectionNav = sections.map(s => ({ href: `/s/${s.id}`, label: s.name, Icon: KIND_ICON[s.kind] ?? BookOpen }))
+  const NAV = [
+    { href: '/',          label: 'Home',        Icon: Home      },
+    ...sectionNav,
+    { href: '/numbers',   label: 'Key Numbers', Icon: Hash      },
+    { href: '/timetable', label: 'Timetable',   Icon: Calendar  },
+    { href: '/progress',  label: 'Progress',    Icon: BarChart3 },
+  ]
   const pathname = usePathname()
   const router = useRouter()
-  const days = daysToExam()
   const [signingOut, setSigningOut] = useState(false)
 
   async function handleSignOut() {
@@ -46,10 +48,22 @@ export function Sidebar({ onLogSession }: SidebarProps) {
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight">ExamReady</p>
-            <p className="text-[11px] text-gray-400 leading-tight">{EXAM_NAME}</p>
+            <p className="text-[11px] text-gray-400 leading-tight truncate max-w-[140px]">{examName}</p>
           </div>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-1">
+          <Link
+            href="/profile"
+            aria-label="Profile"
+            className={cn(
+              'p-1.5 rounded-lg transition-colors',
+              pathname === '/profile' ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400' : 'hover:bg-gray-100 dark:hover:bg-[#1C2128] text-gray-400'
+            )}
+          >
+            <User size={16} />
+          </Link>
+          <ThemeToggle />
+        </div>
       </div>
 
       {/* Nav */}
@@ -76,12 +90,7 @@ export function Sidebar({ onLogSession }: SidebarProps) {
 
       {/* Bottom */}
       <div className="px-3 pb-4 border-t border-gray-100 dark:border-[#30363D] pt-3 space-y-2">
-        {/* Countdown */}
-        <div className="bg-brand-50 dark:bg-brand-900/20 rounded-xl p-3">
-          <p className="text-[11px] text-brand-600 dark:text-brand-400 font-medium uppercase tracking-wide mb-0.5">Days to exam</p>
-          <p className="text-3xl font-semibold text-brand-800 dark:text-brand-300 leading-none">{days}</p>
-          <p className="text-[11px] text-brand-600 dark:text-brand-400 mt-0.5">{formatDate(EXAM_DATE.toISOString())}</p>
-        </div>
+        <ExamCountdown compact />
 
         <button
           onClick={onLogSession}

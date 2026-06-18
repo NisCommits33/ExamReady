@@ -7,12 +7,14 @@ import { SessionLogSheet } from '@/components/sessions/SessionLogSheet'
 import { Toaster } from '@/components/ui/sonner'
 import { PlusCircle } from 'lucide-react'
 
-export function Shell({ children }: { children: React.ReactNode }) {
+export interface NavSection { id: string; name: string; kind: string }
+
+export function Shell({ children, examName, sections }: { children: React.ReactNode; examName?: string; sections?: NavSection[] }) {
   const [sessionOpen, setSessionOpen] = useState(false)
 
   return (
     <div className="min-h-dvh bg-gray-100 dark:bg-[#0D1117]">
-      <Sidebar onLogSession={() => setSessionOpen(true)} />
+      <Sidebar onLogSession={() => setSessionOpen(true)} examName={examName} sections={sections} />
 
       <main className="md:ml-60 min-h-dvh pb-16 md:pb-0">
         <div className="max-w-[1080px] mx-auto px-4 md:px-8 py-6">
@@ -20,7 +22,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      <BottomNav />
+      <BottomNav sections={sections} />
 
       {/* Mobile FAB — log session, sits above bottom nav */}
       <button

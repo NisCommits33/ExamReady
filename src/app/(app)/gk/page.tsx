@@ -1,5 +1,8 @@
-import { GKClient } from '@/components/gk/GKClient'
+import { redirect } from 'next/navigation'
+import { getActiveExam } from '@/lib/exam'
 
-export default function GKPage() {
-  return <GKClient />
+export default async function GKRedirect() {
+  const active = await getActiveExam()
+  const sec = active?.sections.find(s => s.kind === 'mcq_study')
+  redirect(sec ? `/s/${sec.id}` : '/')
 }

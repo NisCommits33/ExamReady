@@ -2,20 +2,22 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, BookOpen, Brain, Globe, Flame, BarChart3 } from 'lucide-react'
+import { Home, Brain, Globe, Flame, Hash, BarChart3, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { NavSection } from './Shell'
 
-const NAV = [
-  { href: '/',       label: 'Home',    Icon: Home      },
-  { href: '/topics', label: 'Topics',  Icon: BookOpen  },
-  { href: '/iq',     label: 'IQ',      Icon: Brain     },
-  { href: '/gk',     label: 'GK',      Icon: Globe     },
-  { href: '/arff',   label: 'ARFF',    Icon: Flame     },
-  { href: '/progress', label: 'Progress', Icon: BarChart3 },
-]
+const KIND_ICON: Record<string, typeof Home> = { mcq_study: Globe, aptitude: Brain, written: Flame }
 
-export function BottomNav() {
+export function BottomNav({ sections = [] }: { sections?: NavSection[] }) {
   const pathname = usePathname()
+
+  const sectionNav = sections.slice(0, 3).map(s => ({ href: `/s/${s.id}`, label: s.name.split(' ')[0], Icon: KIND_ICON[s.kind] ?? BookOpen }))
+  const NAV = [
+    { href: '/',        label: 'Home',    Icon: Home      },
+    ...sectionNav,
+    { href: '/numbers', label: 'Numbers', Icon: Hash      },
+    { href: '/progress', label: 'Stats', Icon: BarChart3 },
+  ]
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-[#0D1117] border-t border-gray-200 dark:border-[#30363D] safe-bottom md:hidden">
@@ -33,10 +35,7 @@ export function BottomNav() {
               )}
             >
               <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
-              <span className={cn(
-                'text-[9px] font-medium leading-none truncate',
-                active ? 'text-brand-600' : 'text-gray-400 dark:text-gray-600'
-              )}>
+              <span className={cn('text-[9px] font-medium leading-none truncate', active ? 'text-brand-600' : 'text-gray-400 dark:text-gray-600')}>
                 {label}
               </span>
             </Link>

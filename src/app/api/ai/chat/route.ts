@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
 import { groqStream } from '@/lib/groq'
 import { createClient } from '@/lib/supabase/server'
+import { logActivity } from '@/lib/activity'
+import { getExamPromptContext } from '@/lib/exam'
 
 export async function POST(req: Request) {
   const { messages, topicId } = await req.json()
+  const examCtx = await getExamPromptContext()
 
   let topicContext = ''
   if (topicId) {
@@ -18,10 +21,12 @@ export async function POST(req: Request) {
     }
   }
 
-  const system = `You are an expert AI study assistant for the Nepal CAAN Level 5 Senior Assistant exam (Aviation Fire Services Group).
+  const system = `You are an expert AI study assistant for the ${examCtx} exam.
 ${topicContext}
 
-Answer concisely in 2-4 sentences unless a longer explanation is needed. Reference specific CAAN regulations, ICAO Annex standards, and Nepal aviation context. If asked about an MCQ or multiple choice scenario, give the answer first then explain why the other options are wrong. Use markdown for formatting.`
+Answer concisely in 2-4 sentences unless a longer explanation is needed. Reference specific facts, standards, and regulations relevant to this exam's field. If asked about an MCQ or multiple choice scenario, give the answer first then explain why the other options are wrong. Use markdown for formatting.`
+
+  logActivity('ai_chat', topicId ?? null, { messageCount: messages?.length })
 
   try {
     const stream = await groqStream([

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
+import { logActivity } from '@/lib/activity'
 
 export async function POST(req: Request) {
   try {
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
           parts: [
             { inlineData: { data: base64, mimeType: file.type as 'image/jpeg' | 'image/png' | 'image/webp' } },
             {
-              text: `This is an exam question image from the CAAN Level 5 exam (Aviation Fire Services).
+              text: `This is an exam question image from a competitive exam.
 Extract the exact question text from this image.
 - Include all sub-parts if any (a, b, c...)
 - Include marks allocation if visible (e.g., [5 marks])
@@ -39,6 +40,7 @@ Extract the exact question text from this image.
     const questionText = response.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
     if (!questionText) return NextResponse.json({ error: 'Could not extract question' }, { status: 422 })
 
+    logActivity('extract_p2_question', null, { fileType: file.type })
     return NextResponse.json({ question: questionText })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

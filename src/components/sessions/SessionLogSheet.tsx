@@ -40,7 +40,6 @@ export function SessionLogSheet({ open, onOpenChange }: SessionLogSheetProps) {
     const { error } = await supabase.from('sessions').insert({
       date: today,
       topic_id: topicId,
-      paper,
       duration_mins: duration,
       notes: notes || null,
     })
@@ -51,7 +50,7 @@ export function SessionLogSheet({ open, onOpenChange }: SessionLogSheetProps) {
       return
     }
 
-    await supabase.from('topics').update({ last_studied: today }).eq('id', topicId)
+    await supabase.from('user_topic_progress').upsert({ topic_id: topicId, last_studied: today }, { onConflict: 'user_id,topic_id' })
 
     toast.success('Session logged · AI updating schedule…')
     onOpenChange(false)

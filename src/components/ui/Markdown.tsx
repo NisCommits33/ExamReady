@@ -3,6 +3,7 @@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
+import { MermaidBlock } from './MermaidBlock'
 
 interface MarkdownProps {
   children: string
@@ -60,6 +61,9 @@ export function Markdown({ children, className, compact = false }: MarkdownProps
           <em className="italic text-gray-600 dark:text-gray-400">{children}</em>
         ),
         code: ({ children, className }) => {
+          if (className?.includes('language-mermaid')) {
+            return <MermaidBlock chart={String(children)} />
+          }
           const isBlock = className?.includes('language-')
           if (isBlock) {
             return (

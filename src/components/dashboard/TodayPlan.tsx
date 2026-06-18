@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Check, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -28,7 +29,7 @@ export function TodayPlan({ sessions, onLogSession }: TodayPlanProps) {
     <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-medium text-gray-900 dark:text-gray-100">Today's plan</h2>
-        <button className="text-xs text-brand-600 hover:text-brand-800 dark:hover:text-brand-400 transition-colors">Edit</button>
+        <Link href="/timetable" className="text-xs text-brand-600 hover:text-brand-800 dark:hover:text-brand-400 transition-colors">Edit</Link>
       </div>
 
       {sessions.length === 0 ? (

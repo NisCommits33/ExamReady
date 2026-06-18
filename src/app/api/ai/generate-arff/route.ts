@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { groqJSON } from '@/lib/groq'
 import { ARFF_CATEGORIES } from '@/lib/constants'
+import { logActivity } from '@/lib/activity'
 
 export async function POST(req: Request) {
   const { category, count } = await req.json()
@@ -39,6 +40,7 @@ Return JSON:
         content: `Generate ${count ?? 10} ARFF MCQs on: "${picked?.label ?? 'General ARFF'}". Focus on exam-critical specifics: numbers, thresholds, procedures.`,
       },
     ])
+    logActivity('generate_arff', null, { category: picked?.id, count: count ?? 10 })
     return NextResponse.json(data)
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 })

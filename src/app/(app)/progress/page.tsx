@@ -1,16 +1,18 @@
 import { createClient } from '@/lib/supabase/server'
 import { ProgressClient } from '@/components/progress/ProgressClient'
+import { TOPIC_WITH_PROGRESS, flattenTopics } from '@/lib/topics'
 
 export default async function ProgressPage() {
   const supabase = await createClient()
 
-  const [{ data: topics }, { data: stats }, { data: attempts }] = await Promise.all([
-    supabase.from('topics').select('*').order('paper').order('section').order('topic_number'),
+  const [{ data: rawTopics }, { data: stats }, { data: attempts }, { data: drills }] = await Promise.all([
+    supabase.from('topics').select(TOPIC_WITH_PROGRESS).order('paper').order('section').order('topic_number'),
     supabase.from('iq_stats').select('*'),
     supabase.from('iq_attempts').select('is_correct,confidence').order('attempted_at', { ascending: false }).limit(200),
+    supabase.from('drill_results').select('*,topics(name)').order('created_at', { ascending: false }).limit(50),
   ])
 
-  const allTopics = topics ?? []
+  const allTopics = flattenTopics(rawTopics)
   const p1 = allTopics.filter(t => t.paper === 1)
   const p2 = allTopics.filter(t => t.paper === 2)
   const pct = (arr: typeof allTopics) =>
@@ -28,6 +30,7 @@ export default async function ProgressPage() {
       overallReadiness={Math.round((pct(p1) + pct(p2)) / 2)}
       iqStats={stats ?? []}
       sureCalibration={surePct}
+      drills={drills ?? []}
     />
   )
 }

@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import { groqJSON } from '@/lib/groq'
 import { createClient } from '@/lib/supabase/server'
+import { logActivity } from '@/lib/activity'
 
 export async function POST(req: Request) {
-  const { topicId, studyNote } = await req.json()
-  if (!topicId || !studyNote) {
-    return NextResponse.json({ error: 'Missing topicId or studyNote' }, { status: 400 })
+  const { topicId, subtopicId, studyNote } = await req.json()
+  if ((!topicId && !subtopicId) || !studyNote) {
+    return NextResponse.json({ error: 'Missing topicId/subtopicId or studyNote' }, { status: 400 })
   }
 
   try {
@@ -40,12 +41,17 @@ Be concise. No waffle. Every line must be exam-useful.`,
     ])
 
     const supabase = await createClient()
-    await supabase.from('topic_notes').update({
-      key_points: data.key_points,
-      exam_tips: data.exam_tips,
-      updated_at: new Date().toISOString(),
-    }).eq('topic_id', topicId)
+    if (subtopicId) {
+      await supabase.from('subtopics').update({ key_points: data.key_points }).eq('id', subtopicId)
+    } else {
+      await supabase.from('topic_notes').update({
+        key_points: data.key_points,
+        exam_tips: data.exam_tips,
+        updated_at: new Date().toISOString(),
+      }).eq('topic_id', topicId)
+    }
 
+    logActivity('extract_note_sections', topicId ?? null, { subtopicId: subtopicId ?? null })
     return NextResponse.json({ key_points: data.key_points, exam_tips: data.exam_tips })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 })

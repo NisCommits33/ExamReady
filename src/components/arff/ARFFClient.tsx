@@ -1,220 +1,128 @@
 'use client'
 
-import { useState } from 'react'
-import { Flame, Timer } from 'lucide-react'
-import { toast } from 'sonner'
+import { useState, useMemo } from 'react'
+import { BookOpen, Layers, ClipboardCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ARFF_CATEGORIES } from '@/lib/constants'
+import { TopicDetail } from '@/components/shared/TopicDetail'
+import { StudyDashboard, type ScoreEntry } from '@/components/shared/StudyDashboard'
+import { StudySearchFilter, type StatusFilter, type SortKey } from '@/components/shared/StudySearchFilter'
+import { ScoreSparkline } from '@/components/shared/ScoreSparkline'
+import { Flashcards } from '@/components/shared/Flashcards'
+import { ARFFMockExam } from './ARFFMockExam'
+import { ARFFPracticeTab } from './ARFFPracticeTab'
+import type { Topic, P2Answer, TopicStatus } from '@/types/database'
 
-type Phase = 'grid' | 'loading' | 'question' | 'answered' | 'done'
+type ActiveMode = 'topics' | 'flashcards' | 'mockexam'
 
-interface Question {
-  question_text: string
-  options: Record<string, string>
-  correct_answer: string
-  explanation: string
-  difficulty: string
+interface Props {
+  p2Topics: Topic[]
+  p2Answers: P2Answer[]
+  topicKeyPoints: { topic_id: string; key_points: string | null }[]
+  heading?: string
 }
 
-const CATEGORY_ICONS: Record<string, string> = {
-  foam_agents: '🧪',
-  vehicles: '🚒',
-  rescue_ops: '🛟',
-  icao_annex14: '📋',
-  fire_classes: '🔥',
-  medical_first: '🏥',
-  local_procedures: '✈️',
-}
+export function ARFFClient({ p2Topics, p2Answers, topicKeyPoints, heading }: Props) {
+  const [topics, setTopics] = useState(p2Topics)
+  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null)
+  const [activeMode, setActiveMode] = useState<ActiveMode>('topics')
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [sortBy, setSortBy] = useState<SortKey>('default')
 
-export function ARFFClient() {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [phase, setPhase] = useState<Phase>('grid')
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [qIndex, setQIndex] = useState(0)
-  const [selected, setSelected] = useState<string | null>(null)
-  const [elapsed, setElapsed] = useState(0)
-  const [timerRef, setTimerRef] = useState<ReturnType<typeof setInterval> | null>(null)
-  const [results, setResults] = useState<{ correct: boolean }[]>([])
+  const scores: ScoreEntry[] = useMemo(() =>
+    p2Answers.filter(a => a.ai_score != null).map(a => ({
+      topic_id: a.topic_id,
+      score_pct: ((a.ai_score ?? 0) / (a.question_type === '5mark' ? 5 : 10)) * 100,
+    })), [p2Answers])
 
-  async function startDrill(category: string) {
-    setSelectedCategory(category)
-    setPhase('loading')
-    setResults([])
-    setQIndex(0)
-    setElapsed(0)
-    try {
-      const res = await fetch('/api/ai/generate-arff', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, count: 10 }),
-      })
-      const data = await res.json()
-      setQuestions(data.questions ?? [])
-      setPhase('question')
-      const ref = setInterval(() => setElapsed(e => e + 1), 1000)
-      setTimerRef(ref)
-    } catch {
-      toast.error('Failed to generate questions')
-      setPhase('grid')
-    }
+  const scoresByTopic = useMemo(() => {
+    const map = new Map<string, number[]>()
+    scores.forEach(s => { const arr = map.get(s.topic_id) ?? []; arr.push(s.score_pct); map.set(s.topic_id, arr) })
+    return map
+  }, [scores])
+
+  const filteredTopics = useMemo(() => {
+    let t = [...topics]
+    if (search) { const q = search.toLowerCase(); t = t.filter(x => x.name.toLowerCase().includes(q)) }
+    if (statusFilter !== 'all') t = t.filter(x => x.status === statusFilter)
+    if (sortBy === 'status') { const o: Record<string, number> = { not_started: 0, in_progress: 1, done: 2 }; t.sort((a, b) => (o[a.status] ?? 0) - (o[b.status] ?? 0)) }
+    else if (sortBy === 'score') { t.sort((a, b) => { const as = scoresByTopic.get(a.id) ?? [], bs = scoresByTopic.get(b.id) ?? []; return (bs.length ? bs.reduce((s, v) => s + v, 0) / bs.length : -1) - (as.length ? as.reduce((s, v) => s + v, 0) / as.length : -1) }) }
+    else if (sortBy === 'last_attempted') { const la = new Map<string, string>(); p2Answers.forEach(a => { if (!la.has(a.topic_id)) la.set(a.topic_id, a.attempted_at) }); t.sort((a, b) => (la.get(b.id) ?? '').localeCompare(la.get(a.id) ?? '')) }
+    return t
+  }, [topics, search, statusFilter, sortBy, scoresByTopic, p2Answers])
+
+  function handleStatusChange(topicId: string, status: TopicStatus) {
+    setTopics(prev => prev.map(t => t.id === topicId ? { ...t, status } : t))
   }
 
-  function selectAnswer(opt: string) {
-    if (phase !== 'question') return
-    if (timerRef) clearInterval(timerRef)
-    setSelected(opt)
-    setPhase('answered')
-    setResults(prev => [...prev, { correct: opt === questions[qIndex].correct_answer }])
+  const selectedTopic = topics.find(t => t.id === selectedTopicId)
+
+  if (selectedTopicId && selectedTopic) {
+    return (
+      <TopicDetail
+        topic={selectedTopic}
+        onBack={() => setSelectedTopicId(null)}
+        onStatusChange={handleStatusChange}
+        practiceTab={<ARFFPracticeTab topic={selectedTopic} />}
+        practiceLabel="Practice"
+      />
+    )
   }
 
-  function next() {
-    if (qIndex + 1 >= questions.length) { setPhase('done'); return }
-    setQIndex(i => i + 1)
-    setSelected(null)
-    setPhase('question')
-    setElapsed(0)
-    const ref = setInterval(() => setElapsed(e => e + 1), 1000)
-    setTimerRef(ref)
-  }
-
-  function reset() {
-    setPhase('grid')
-    setSelectedCategory(null)
-    setQuestions([])
-    setQIndex(0)
-    setSelected(null)
-    setResults([])
-    setElapsed(0)
-  }
-
-  if (phase === 'grid') return (
+  return (
     <div>
       <div className="mb-5">
-        <h1 className="text-lg font-medium text-gray-900 dark:text-gray-100">ARFF Drills</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Aviation Rescue & Fire Fighting · CAAN exam MCQs</p>
+        <h1 className="text-lg font-medium text-gray-900 dark:text-gray-100">{heading ?? 'ARFF'}</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Study &amp; written practice</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {ARFF_CATEGORIES.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => startDrill(cat.id)}
-            className={cn(
-              'flex flex-col items-start gap-2.5 p-4 rounded-xl text-left',
-              'bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D]',
-              'hover:border-danger-400 hover:shadow-sm active:scale-[0.98] transition-all duration-150'
-            )}
-          >
-            <span className="text-xl">{CATEGORY_ICONS[cat.id] ?? '🔥'}</span>
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-snug">{cat.label}</p>
+      <div className="flex bg-gray-100 dark:bg-[#1C2128] rounded-lg p-0.5 mb-5">
+        {([
+          { key: 'topics' as ActiveMode, icon: BookOpen, label: 'Topics' },
+          { key: 'flashcards' as ActiveMode, icon: Layers, label: 'Flashcards' },
+          { key: 'mockexam' as ActiveMode, icon: ClipboardCheck, label: 'Mock Exam' },
+        ]).map(m => (
+          <button key={m.key} onClick={() => setActiveMode(m.key)} className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-md transition-all duration-150', activeMode === m.key ? 'bg-white dark:bg-[#161B22] text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400')}>
+            <m.icon size={13} /> {m.label}
           </button>
         ))}
       </div>
 
-      <button
-        onClick={() => startDrill('random')}
-        className="w-full py-3.5 bg-danger-400 text-white text-sm font-medium rounded-xl hover:bg-danger-800 transition-colors active:scale-[0.98]"
-      >
-        Random ARFF mix · 10 Qs
-      </button>
-    </div>
-  )
-
-  if (phase === 'loading') return (
-    <div className="py-20 text-center">
-      <div className="w-6 h-6 border-2 border-gray-200 border-t-danger-400 rounded-full animate-spin mx-auto mb-3" />
-      <p className="text-sm text-gray-400">Generating ARFF questions…</p>
-    </div>
-  )
-
-  if (phase === 'done') {
-    const correct = results.filter(r => r.correct).length
-    return (
-      <div className="py-8 text-center">
-        <Flame size={32} className="mx-auto mb-3 text-danger-400" />
-        <p className="text-4xl font-medium text-gray-900 dark:text-gray-100 tabular-nums">{correct}/{results.length}</p>
-        <p className="text-lg text-gray-500 mt-1">{Math.round(correct / results.length * 100)}%</p>
-        <p className="text-sm text-gray-400 mt-1 mb-6">
-          {ARFF_CATEGORIES.find(c => c.id === selectedCategory)?.label ?? 'Random mix'}
-        </p>
-        <div className="flex gap-3">
-          <button onClick={() => startDrill(selectedCategory!)} className="flex-1 py-3 bg-danger-400 text-white text-sm font-medium rounded-xl hover:bg-danger-800 transition-colors">
-            Try again
-          </button>
-          <button onClick={reset} className="flex-1 py-3 border border-gray-200 dark:border-[#30363D] text-gray-600 dark:text-gray-400 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-[#1C2128] transition-colors">
-            Back
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  const q = questions[qIndex]
-  const opts = ['A', 'B', 'C', 'D'] as const
-  const overTime = elapsed >= 54
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-1">
-          {questions.map((_, i) => (
-            <div key={i} className={cn('w-6 h-1 rounded-full transition-colors', i < qIndex ? 'bg-danger-400' : i === qIndex ? 'bg-danger-400' : 'bg-gray-200 dark:bg-gray-700')} />
-          ))}
-        </div>
-        <div className={cn('flex items-center gap-1 text-xs font-mono tabular-nums', overTime ? 'text-danger-400' : 'text-gray-400')}>
-          <Timer size={12} />
-          {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}
-        </div>
-      </div>
-
-      {q && (
-        <div className="bg-gray-50 dark:bg-[#1C2128] rounded-xl p-5 mb-5">
-          <p className="text-xs text-gray-400 mb-2">Q{qIndex + 1} / {questions.length} · <span className="capitalize">{q.difficulty}</span></p>
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-relaxed">{q.question_text}</p>
-        </div>
-      )}
-
-      {q && (phase === 'question' || phase === 'answered') && (
-        <div className="space-y-2">
-          {opts.map(opt => {
-            const text = q.options[opt]
-            if (!text) return null
-            const isCorrect = opt === q.correct_answer
-            const isSelected = opt === selected
-            return (
-              <button
-                key={opt}
-                onClick={() => selectAnswer(opt)}
-                disabled={phase === 'answered'}
-                className={cn(
-                  'w-full flex items-start gap-3 px-4 py-3.5 text-left rounded-xl border-2 text-sm transition-all duration-150',
-                  phase === 'answered' && isCorrect && 'bg-success-50 dark:bg-green-900/30 border-success-400 text-success-800 dark:text-green-300',
-                  phase === 'answered' && isSelected && !isCorrect && 'bg-danger-50 dark:bg-red-900/30 border-danger-400 text-danger-800 dark:text-red-300',
-                  phase === 'question' && 'border-gray-200 dark:border-[#30363D] bg-white dark:bg-[#161B22] hover:border-danger-400 hover:bg-danger-50 dark:hover:bg-red-900/10 cursor-pointer',
-                  phase === 'answered' && !isCorrect && !isSelected && 'border-gray-100 dark:border-gray-800 text-gray-400'
-                )}
-              >
-                <span className="font-semibold flex-shrink-0 w-4">{opt}.</span>
-                <span className="flex-1">{text}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      {phase === 'answered' && q && (
-        <div className="mt-4">
-          <div className={cn('rounded-xl p-4 mb-3', results[results.length - 1]?.correct ? 'bg-success-50 dark:bg-green-900/20' : 'bg-danger-50 dark:bg-red-900/20')}>
-            <p className={cn('text-xs font-semibold mb-1 uppercase tracking-wide', results[results.length - 1]?.correct ? 'text-success-400' : 'text-danger-400')}>
-              {results[results.length - 1]?.correct ? 'Correct' : 'Incorrect'}
-            </p>
-            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{q.explanation}</p>
+      {activeMode === 'topics' && (
+        <>
+          <StudyDashboard topics={topics} scores={scores} totalAttempts={p2Answers.length} onSelectTopic={id => setSelectedTopicId(id)} />
+          <StudySearchFilter search={search} onSearchChange={setSearch} statusFilter={statusFilter} onStatusFilterChange={setStatusFilter} sortBy={sortBy} onSortChange={setSortBy} />
+          <div className="space-y-2">
+            {filteredTopics.map(t => {
+              const ts = (scoresByTopic.get(t.id) ?? []).slice(-5)
+              const recent = p2Answers.find(a => a.topic_id === t.id)
+              return (
+                <button key={t.id} onClick={() => setSelectedTopicId(t.id)} className="w-full flex items-center justify-between px-4 py-3.5 bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl text-left hover:border-teal-400 dark:hover:border-teal-700 transition-all duration-150">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{t.name}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">§{t.section} · Topic {t.topic_number}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                    <ScoreSparkline scores={ts} />
+                    <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full', t.status === 'done' ? 'bg-success-50 text-success-800' : t.status === 'in_progress' ? 'bg-warning-50 text-warning-800' : 'bg-gray-100 text-gray-500')}>
+                      {t.status === 'done' ? 'Done' : t.status === 'in_progress' ? 'In progress' : 'Not started'}
+                    </span>
+                    {recent?.ai_score != null && (
+                      <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', recent.ai_score >= (recent.question_type === '5mark' ? 3 : 6) ? 'bg-success-50 text-success-800' : 'bg-warning-50 text-warning-800')}>
+                        {recent.ai_score}/{recent.question_type === '5mark' ? 5 : 10}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+            {filteredTopics.length === 0 && <p className="text-sm text-gray-400 text-center py-8">No topics match your filter</p>}
           </div>
-          <button onClick={next} className="w-full py-3 bg-danger-400 text-white text-sm font-medium rounded-xl hover:bg-danger-800 transition-colors active:scale-[0.98]">
-            {qIndex + 1 >= questions.length ? 'See results' : 'Next →'}
-          </button>
-        </div>
+        </>
       )}
+
+      {activeMode === 'flashcards' && <Flashcards topics={topics} topicKeyPoints={topicKeyPoints} />}
+      {activeMode === 'mockexam' && <ARFFMockExam topics={topics} allScores={p2Answers} onBack={() => setActiveMode('topics')} />}
     </div>
   )
 }

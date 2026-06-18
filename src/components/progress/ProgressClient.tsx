@@ -5,7 +5,7 @@ import { ProgressBar } from '@/components/shared/ProgressBar'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { IQ_QUESTION_TYPES } from '@/lib/constants'
 import { cn, relativeDate, coveragePct } from '@/lib/utils'
-import type { Topic, IQStats } from '@/types/database'
+import type { Topic, IQStats, DrillResult } from '@/types/database'
 import { daysToExam } from '@/lib/utils'
 
 interface ProgressClientProps {
@@ -15,9 +15,16 @@ interface ProgressClientProps {
   overallReadiness: number
   iqStats: IQStats[]
   sureCalibration: number | null
+  drills: DrillResult[]
 }
 
-export function ProgressClient({ topics, p1Coverage, p2Coverage, overallReadiness, iqStats, sureCalibration }: ProgressClientProps) {
+const SECTION_META: Record<string, { label: string; color: string; fallback: string }> = {
+  gk:   { label: 'GK',   color: 'bg-brand-50 text-brand-800',   fallback: 'GK drill' },
+  iq:   { label: 'IQ',   color: 'bg-purple-50 text-purple-800', fallback: 'IQ drill' },
+  arff: { label: 'ARFF', color: 'bg-teal-50 text-teal-800',     fallback: 'Mock exam' },
+}
+
+export function ProgressClient({ topics, p1Coverage, p2Coverage, overallReadiness, iqStats, sureCalibration, drills }: ProgressClientProps) {
   const [paperFilter, setPaperFilter] = useState<'all' | 1 | 2>('all')
   const [showAll, setShowAll] = useState(false)
 
@@ -161,6 +168,29 @@ export function ProgressClient({ topics, p1Coverage, p2Coverage, overallReadines
           })}
         </div>
       </div>
+
+      {/* Recent drill history */}
+      {drills.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-sm font-medium text-gray-900 mb-3">Recent drills</p>
+          <div className="space-y-2">
+            {drills.slice(0, 10).map(d => {
+              const meta = SECTION_META[d.section] ?? { label: d.section.toUpperCase(), color: 'bg-gray-100 text-gray-600', fallback: 'Drill' }
+              const pct = d.total > 0 ? Math.round((d.score / d.total) * 100) : 0
+              const scoreColor = pct >= 70 ? 'text-success-600' : pct >= 50 ? 'text-warning-600' : 'text-danger-500'
+              const label = (d.topics as { name: string } | null)?.name ?? meta.fallback
+              return (
+                <div key={d.id} className="flex items-center gap-3">
+                  <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0', meta.color)}>{meta.label}</span>
+                  <p className="text-xs text-gray-700 flex-1 truncate">{label}</p>
+                  <span className="text-[11px] text-gray-400 flex-shrink-0">{relativeDate(d.created_at)}</span>
+                  <span className={cn('text-xs font-semibold tabular-nums w-12 text-right flex-shrink-0', scoreColor)}>{d.score}/{d.total}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Confidence calibration */}
       {sureCalibration !== null && (

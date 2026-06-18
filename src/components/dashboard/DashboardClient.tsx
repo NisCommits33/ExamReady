@@ -1,14 +1,17 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { CountdownCard } from './CountdownCard'
 import { MetricGrid } from './MetricGrid'
 import { TodayPlan } from './TodayPlan'
 import { RescueCard } from './RescueCard'
-import { WeeklyReportCard } from './WeeklyReportCard'
+import { WeeklyReviewSection } from './WeeklyReviewSection'
 import { QuickActions } from './QuickActions'
+import { ActivityFeed } from './ActivityFeed'
+import { DailyReview } from './DailyReview'
 import { SessionLogSheet } from '@/components/sessions/SessionLogSheet'
-import type { PlannedSession, Topic, WeeklyReport } from '@/types/database'
+import type { PlannedSession, Topic, WeeklyReport, ActivityLog } from '@/types/database'
 
 interface Props {
   name: string
@@ -21,6 +24,9 @@ interface Props {
   overallReadiness: number
   flaggedTopics: Pick<Topic, 'id' | 'name' | 'ai_priority'>[]
   weeklyReport: WeeklyReport | null
+  activities: ActivityLog[]
+  dueCardCount: number
+  numberCount: number
 }
 
 export function DashboardClient(props: Props) {
@@ -43,11 +49,20 @@ export function DashboardClient(props: Props) {
             {shiftLabel ? `Study window ${shiftLabel}` : 'No shift data for today'}
           </p>
         </div>
-        {props.todayShift && (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-brand-50 text-brand-800 border border-brand-100 dark:border-brand-900/40 flex-shrink-0">
-            Shift {props.todayShift.type}
-          </span>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {props.todayShift && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-brand-50 text-brand-800 border border-brand-100 dark:border-brand-900/40">
+              Shift {props.todayShift.type}
+            </span>
+          )}
+          <Link
+            href="/profile"
+            aria-label="Open profile"
+            className="md:hidden w-9 h-9 rounded-full bg-brand-600 text-white flex items-center justify-center text-sm font-semibold hover:bg-brand-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+          >
+            {(props.name || '?').trim().charAt(0).toUpperCase()}
+          </Link>
+        </div>
       </div>
 
       {/* Countdown + Readiness */}
@@ -61,6 +76,9 @@ export function DashboardClient(props: Props) {
       {props.flaggedTopics.length > 0 && (
         <RescueCard topics={props.flaggedTopics} />
       )}
+
+      {/* Daily review */}
+      <DailyReview dueCardCount={props.dueCardCount} numberCount={props.numberCount} />
 
       {/* 2-col on desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -80,9 +98,10 @@ export function DashboardClient(props: Props) {
       </div>
 
       {/* Weekly report */}
-      {props.weeklyReport && (
-        <WeeklyReportCard report={props.weeklyReport} />
-      )}
+      <WeeklyReviewSection report={props.weeklyReport} />
+
+      {/* Activity feed */}
+      <ActivityFeed activities={props.activities} />
 
       {/* Quick actions */}
       <QuickActions onLogSession={() => setSessionOpen(true)} />

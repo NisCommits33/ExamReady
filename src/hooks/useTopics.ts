@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { TOPIC_WITH_PROGRESS, flattenTopics } from '@/lib/topics'
 import type { Topic } from '@/types/database'
 
 export function useTopics() {
@@ -10,8 +11,8 @@ export function useTopics() {
 
   async function load() {
     const supabase = createClient()
-    const { data } = await supabase.from('topics').select('*').order('paper').order('section').order('topic_number')
-    setTopics(data ?? [])
+    const { data } = await supabase.from('topics').select(TOPIC_WITH_PROGRESS).order('paper').order('section').order('topic_number')
+    setTopics(flattenTopics(data))
     setLoading(false)
   }
 
@@ -19,7 +20,7 @@ export function useTopics() {
 
   async function updateStatus(id: string, status: Topic['status']) {
     const supabase = createClient()
-    await supabase.from('topics').update({ status }).eq('id', id)
+    await supabase.from('user_topic_progress').upsert({ topic_id: id, status }, { onConflict: 'user_id,topic_id' })
     setTopics(prev => prev.map(t => t.id === id ? { ...t, status } : t))
     fetch('/api/ai/replan-schedule', { method: 'POST' }).catch(() => {})
   }

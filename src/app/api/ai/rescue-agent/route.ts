@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { geminiText } from '@/lib/gemini'
 import { groqJSON } from '@/lib/groq'
+import { logActivity } from '@/lib/activity'
 import { daysToExam } from '@/lib/utils'
 import { addDays, format } from 'date-fns'
 
@@ -9,7 +10,7 @@ export async function POST(req: Request) {
   const { topicId } = await req.json()
 
   try {
-    const supabase = await createServiceClient()
+    const supabase = await createClient()
     const daysLeft = daysToExam()
 
     const [{ data: topic }, { data: sessions }, { data: shifts }] = await Promise.all([
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
       supabase.from('sessions').select('date,duration_mins').eq('topic_id', topicId),
       supabase
         .from('shifts')
-        .select('date,type,study_start,study_end')
+        .select('date,type,shift_types(study_start,study_end)')
         .gte('date', format(new Date(), 'yyyy-MM-dd'))
         .lte('date', format(addDays(new Date(), 5), 'yyyy-MM-dd')),
     ])
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
 
     // Gemini handles multi-step reasoning for the rescue note
     const rescueNote = await geminiText(
-      `You are an emergency study coach for the Nepal CAAN Level 5 exam (Aviation Fire Services).
+      `You are an emergency study coach for a competitive exam.
 Create a focused rescue note for a topic with only ${daysLeft} days remaining.
 Be concise, exam-focused, and include specific numbers/thresholds.`,
       `Topic: ${topic.name}
@@ -46,7 +47,7 @@ End with 3 "MUST MEMORIZE" items in bold.`,
     const mcqs = await groqJSON<{ questions: unknown[] }>([
       {
         role: 'system',
-        content: `Generate targeted MCQs for CAAN exam rescue drilling. Focus on the most common exam mistakes and high-probability questions. Return JSON: {"questions": [{"question": "...", "options": {"A":"...","B":"...","C":"...","D":"..."}, "correct": "A", "explanation": "...", "trap": "..."}]}`,
+        content: `Generate targeted MCQs for last-minute exam rescue drilling. Focus on the most common exam mistakes and high-probability questions. Return JSON: {"questions": [{"question": "...", "options": {"A":"...","B":"...","C":"...","D":"..."}, "correct": "A", "explanation": "...", "trap": "..."}]}`,
       },
       {
         role: 'user',
@@ -58,7 +59,7 @@ End with 3 "MUST MEMORIZE" items in bold.`,
       topic_id: topicId,
       scheduled_date: shift.date,
       shift_type: shift.type,
-      slot_time: shift.study_start,
+      slot_time: ((Array.isArray(shift.shift_types) ? shift.shift_types[0] : shift.shift_types) as { study_start: string } | null)?.study_start ?? null,
       duration_mins: 60,
       session_type: i === 0 ? 'study' : i === 1 ? 'drill' : 'review',
       ai_generated: true,
@@ -67,12 +68,13 @@ End with 3 "MUST MEMORIZE" items in bold.`,
 
     await Promise.all([
       supabase.from('ai_notes').insert({ topic_id: topicId, content: rescueNote }),
-      supabase.from('topics').update({ is_flagged: true }).eq('id', topicId),
+      supabase.from('user_topic_progress').upsert({ topic_id: topicId, is_flagged: true }, { onConflict: 'user_id,topic_id' }),
       rescueSessions.length
         ? supabase.from('planned_sessions').insert(rescueSessions)
         : Promise.resolve(),
     ])
 
+    logActivity('rescue_agent', topicId, { topic: topic.name, mcqCount: mcqs.questions?.length ?? 0 })
     return NextResponse.json({ ok: true, note: rescueNote, mcqCount: mcqs.questions?.length ?? 0 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

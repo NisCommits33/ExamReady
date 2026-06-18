@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Loader2, FileImage, X, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
+import { Loader2, FileImage, X, Sparkles, ChevronDown, ChevronUp, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -14,7 +14,15 @@ interface Props {
   existingNote: TopicNote | null
 }
 
-type Phase = 'home' | 'write'
+interface GradeResult {
+  score: number
+  feedback: string
+  strong: string[]
+  missing: string[]
+  model_answer: string
+}
+
+type Phase = 'home' | 'write' | 'result'
 
 export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Props) {
   const [answers, setAnswers] = useState(initialAnswers)
@@ -27,6 +35,9 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
   const [generatingQuestion, setGeneratingQuestion] = useState<QuestionType | null>(null)
   const [extracting, setExtracting] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [gradeResult, setGradeResult] = useState<GradeResult | null>(null)
+  const [resultQuestion, setResultQuestion] = useState('')
+  const [showModelAnswer, setShowModelAnswer] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function generateQuestion(marks: QuestionType) {
@@ -39,6 +50,7 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
           topicName: topic.name,
           subsections: topic.subsections,
           marks,
+          topicId: topic.id,
         }),
       })
       const data = await res.json()
@@ -98,7 +110,7 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
           gradingHints: questionHints,
         }),
       })
-      const result = await res.json()
+      const result: GradeResult = await res.json()
 
       const supabase = createClient()
       const { data } = await supabase.from('p2_answers').insert({
@@ -112,13 +124,10 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
 
       if (data) {
         setAnswers(prev => [data, ...prev])
-        const maxMark = mode === '5mark' ? 5 : 10
-        toast.success(`Graded: ${result.score}/${maxMark}`)
-        setPhase('home')
-        setText('')
-        setQuestion('')
-        setQuestionHints([])
-        setMode(null)
+        setGradeResult(result)
+        setResultQuestion(question)
+        setShowModelAnswer(false)
+        setPhase('result')
       }
     } catch {
       toast.error('Grading failed')
@@ -127,12 +136,128 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
     }
   }
 
-  function cancelWrite() {
+  function resetToHome() {
     setPhase('home')
     setMode(null)
     setText('')
     setQuestion('')
     setQuestionHints([])
+    setGradeResult(null)
+    setResultQuestion('')
+    setShowModelAnswer(false)
+  }
+
+  // ── Result phase ──────────────────────────────────────────────────────────
+  if (phase === 'result' && gradeResult && mode) {
+    const marks = mode === '5mark' ? 5 : 10
+    const pct = (gradeResult.score / marks) * 100
+    const isPassing = pct >= 60
+
+    return (
+      <div>
+        {/* Score header */}
+        <div className={cn(
+          'rounded-xl p-5 mb-4 text-center',
+          isPassing
+            ? 'bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800'
+            : 'bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800'
+        )}>
+          <p className={cn(
+            'text-4xl font-bold',
+            isPassing ? 'text-success-600' : 'text-warning-600'
+          )}>
+            {gradeResult.score}<span className="text-lg font-normal text-gray-400">/{marks}</span>
+          </p>
+          <p className={cn(
+            'text-sm font-medium mt-1',
+            isPassing ? 'text-success-700 dark:text-success-400' : 'text-warning-700 dark:text-warning-400'
+          )}>
+            {pct >= 80 ? 'Excellent' : pct >= 60 ? 'Good — room to improve' : pct >= 40 ? 'Needs more detail' : 'Review this topic'}
+          </p>
+        </div>
+
+        {/* Question reminder */}
+        {resultQuestion && (
+          <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800/50 rounded-xl p-3 mb-4">
+            <p className="text-[10px] font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wide mb-1">Question</p>
+            <p className="text-sm text-teal-900 dark:text-teal-100 leading-relaxed">{resultQuestion}</p>
+          </div>
+        )}
+
+        {/* Feedback */}
+        <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl p-4 mb-4">
+          <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Feedback</p>
+          <Markdown>{gradeResult.feedback}</Markdown>
+        </div>
+
+        {/* Strong points */}
+        {gradeResult.strong?.length > 0 && (
+          <div className="bg-success-50 dark:bg-success-900/10 border border-success-200 dark:border-success-800/50 rounded-xl p-4 mb-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <CheckCircle2 size={14} className="text-success-500" />
+              <p className="text-[11px] font-semibold text-success-700 dark:text-success-400 uppercase tracking-wide">What you got right</p>
+            </div>
+            <ul className="space-y-1.5">
+              {gradeResult.strong.map((s, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-success-800 dark:text-success-300">
+                  <span className="text-success-400 mt-0.5">+</span>
+                  <span>{s}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Missing points */}
+        {gradeResult.missing?.length > 0 && (
+          <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/50 rounded-xl p-4 mb-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <XCircle size={14} className="text-red-400" />
+              <p className="text-[11px] font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide">What was missing</p>
+            </div>
+            <ul className="space-y-1.5">
+              {gradeResult.missing.map((m, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-red-800 dark:text-red-300">
+                  <span className="text-red-400 mt-0.5">−</span>
+                  <span>{m}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Model answer */}
+        {gradeResult.model_answer && (
+          <div className="border border-gray-200 dark:border-[#30363D] rounded-xl overflow-hidden mb-4">
+            <button
+              onClick={() => setShowModelAnswer(v => !v)}
+              className="flex items-center justify-between w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-[#1C2128] transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles size={14} className="text-brand-500" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Model answer</span>
+              </div>
+              {showModelAnswer ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+            </button>
+            {showModelAnswer && (
+              <div className="px-4 pb-4 border-t border-gray-100 dark:border-[#21262D] pt-3">
+                <Markdown>{gradeResult.model_answer}</Markdown>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          <button
+            onClick={resetToHome}
+            className="flex-1 flex items-center justify-center gap-2 py-3 bg-teal-400 text-white text-sm font-medium rounded-xl hover:bg-teal-800 dark:hover:bg-teal-600 transition-colors active:scale-[0.98]"
+          >
+            <RotateCcw size={14} /> Try another question
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // ── Write phase ──────────────────────────────────────────────────────────
@@ -142,18 +267,16 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
 
     return (
       <div>
-        {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-800">{marks} marks</span>
             <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">{topic.name}</h3>
           </div>
-          <button onClick={cancelWrite} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+          <button onClick={resetToHome} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
             ← Back
           </button>
         </div>
 
-        {/* Question */}
         {question && (
           <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800/50 rounded-xl p-4 mb-4">
             <p className="text-[11px] font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wide mb-1.5">Question</p>
@@ -161,7 +284,6 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
           </div>
         )}
 
-        {/* Model answer hint (if exists) */}
         {modelAnswer && (
           <div className="bg-gray-50 dark:bg-[#1C2128] border-l-4 border-brand-400 rounded-r-xl px-4 py-3 mb-4">
             <p className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 uppercase tracking-wide mb-1">Answer structure hint</p>
@@ -169,7 +291,6 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
           </div>
         )}
 
-        {/* Answer textarea */}
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
@@ -192,7 +313,7 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
             <span className="flex items-center justify-center gap-2">
               <Loader2 size={15} className="animate-spin" /> Grading with AI…
             </span>
-          ) : `Submit for AI grading`}
+          ) : 'Submit for AI grading'}
         </button>
       </div>
     )
@@ -201,7 +322,6 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
   // ── Home phase ────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
-      {/* Generate practice question */}
       <div>
         <div className="flex items-center gap-2 mb-2">
           <Sparkles size={13} className="text-teal-400" />
@@ -235,14 +355,12 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
         </div>
       </div>
 
-      {/* Divider */}
       <div className="flex items-center gap-3">
         <div className="flex-1 h-px bg-gray-200 dark:bg-[#30363D]" />
         <span className="text-xs text-gray-400">or use a real exam question</span>
         <div className="flex-1 h-px bg-gray-200 dark:bg-[#30363D]" />
       </div>
 
-      {/* Upload real question */}
       <div>
         <input
           ref={fileRef}
@@ -253,7 +371,6 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
           id="p2-file-upload"
         />
 
-        {/* Extracted/uploaded question preview */}
         {question ? (
           <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800/50 rounded-xl p-4">
             <div className="flex items-start justify-between gap-2 mb-2">
@@ -318,11 +435,9 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
                 return (
                   <div key={a.id} className="border border-gray-200 dark:border-[#30363D] rounded-xl p-4 dark:bg-[#161B22]">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
-                          {a.question_type} · {new Date(a.attempted_at).toLocaleDateString()}
-                        </span>
-                      </div>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                        {a.question_type} · {new Date(a.attempted_at).toLocaleDateString()}
+                      </span>
                       {a.ai_score != null && (
                         <span className={cn(
                           'text-xs font-semibold px-2 py-0.5 rounded-full',

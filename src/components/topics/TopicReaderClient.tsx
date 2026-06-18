@@ -8,26 +8,24 @@ import { useRouter } from 'next/navigation'
 import { StatusToggle } from '@/components/shared/StatusToggle'
 import { PaperBadge } from '@/components/shared/PaperBadge'
 import { LoadingStream, StreamingSkeleton } from '@/components/shared/LoadingStream'
-import { DrillTab } from './DrillTab'
-import { P2AnswerTab } from './P2AnswerTab'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn, relativeDate } from '@/lib/utils'
 import { Markdown } from '@/components/ui/Markdown'
-import type { Topic, TopicNote, UserAnnotation, P2Answer, TopicStatus } from '@/types/database'
+import type { Topic, TopicNote, UserAnnotation, TopicStatus } from '@/types/database'
 
-type Tab = 'note' | 'keypoints' | 'tips' | 'drill' | 'p2'
+type Tab = 'source' | 'note' | 'keypoints' | 'tips'
 
 interface Props {
   topic: Topic
   note: TopicNote | null
   annotations: UserAnnotation[]
-  answers: P2Answer[]
 }
 
-export function TopicReaderClient({ topic, note: initialNote, annotations: initialAnnotations, answers }: Props) {
+export function TopicReaderClient({ topic, note: initialNote, annotations: initialAnnotations }: Props) {
   const router = useRouter()
-  const [tab, setTab] = useState<Tab>('note')
+  const hasSource = !!initialNote?.official_source
+  const [tab, setTab] = useState<Tab>(hasSource ? 'source' : 'note')
   const [note, setNote] = useState<TopicNote | null>(initialNote)
   const [annotations, setAnnotations] = useState(initialAnnotations)
   const [status, setStatus] = useState<TopicStatus>(topic.status)
@@ -40,11 +38,10 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
   const readerRef = useRef<HTMLDivElement>(null)
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'note',      label: 'Study note'  },
+    ...(hasSource ? [{ key: 'source' as Tab, label: 'Official source' }] : []),
+    { key: 'note',      label: 'AI note'     },
     { key: 'keypoints', label: 'Key points'  },
     { key: 'tips',      label: 'Exam tips'   },
-    { key: 'drill',     label: 'Drill'       },
-    ...(topic.paper === 2 ? [{ key: 'p2' as Tab, label: 'Paper 2' }] : []),
   ]
 
   async function generateNote() {
@@ -123,7 +120,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
   async function handleStatusChange(s: TopicStatus) {
     setStatus(s)
     const supabase = createClient()
-    await supabase.from('topics').update({ status: s }).eq('id', topic.id)
+    await supabase.from('user_topic_progress').upsert({ topic_id: topic.id, status: s }, { onConflict: 'user_id,topic_id' })
     toast.success('Status updated')
     fetch('/api/ai/replan-schedule', { method: 'POST' }).catch(() => {})
   }
@@ -191,6 +188,17 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
 
       {/* Tab content */}
       <div ref={readerRef}>
+        {/* Official source */}
+        {tab === 'source' && note?.official_source && (
+          <div>
+            <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg">
+              <span className="text-[11px] font-semibold text-white bg-brand-600 px-1.5 py-0.5 rounded-full">Official</span>
+              <span className="text-xs text-brand-700 dark:text-brand-300">This is the original source material for this topic</span>
+            </div>
+            <Markdown>{note.official_source}</Markdown>
+          </div>
+        )}
+
         {/* Study note */}
         {tab === 'note' && (
           <div>
@@ -293,15 +301,10 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
           </div>
         )}
 
-        {/* Drill */}
-        {tab === 'drill' && <DrillTab topic={topic} />}
-
-        {/* Paper 2 practice */}
-        {tab === 'p2' && topic.paper === 2 && <P2AnswerTab topic={topic} answers={answers} existingNote={note} />}
       </div>
 
       {/* Floating action bar */}
-      {(tab === 'note') && (
+      {(tab === 'note' || tab === 'source') && (
         <div className="fixed bottom-16 md:bottom-4 left-0 right-0 md:left-60 flex justify-center px-4 pointer-events-none z-30">
           <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl px-3 py-2 flex items-center gap-2 shadow-sm pointer-events-auto">
             <button

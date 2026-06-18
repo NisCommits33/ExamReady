@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { groqJSON } from '@/lib/groq'
+import { logActivity } from '@/lib/activity'
 
 export async function POST(req: Request) {
   const { scope, count } = await req.json()
@@ -36,6 +37,7 @@ Return JSON:
         content: `Generate ${n} GK MCQ questions.\nScope: ${scope}\nMix difficulty levels (roughly 30% easy, 50% medium, 20% hard).`,
       },
     ])
+    logActivity('generate_gk', null, { scope, count: n })
     return NextResponse.json(data)
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 })

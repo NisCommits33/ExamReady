@@ -9,9 +9,10 @@ import { createClient } from '@/lib/supabase/client'
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSaved?: (date: string) => void
 }
 
-export function ExamDateDialog({ open, onOpenChange }: Props) {
+export function ExamDateDialog({ open, onOpenChange, onSaved }: Props) {
   const router = useRouter()
   const [date, setDate] = useState('')
   const [loading, setLoading] = useState(true)
@@ -40,6 +41,7 @@ export function ExamDateDialog({ open, onOpenChange }: Props) {
     toast.success('Exam date updated')
     setSaving(false)
     onOpenChange(false)
+    onSaved?.(date)
     router.refresh()
   }
 

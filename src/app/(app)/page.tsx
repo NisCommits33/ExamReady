@@ -8,7 +8,7 @@ export default async function DashboardPage() {
   const today = new Date().toISOString().split('T')[0]
 
   const [shift, planned, sessions, topics, report, flags, activity, dueCards, numbers] = await Promise.all([
-    supabase.from('shifts').select('type,shift_types(study_start,study_end)').eq('date', today).maybeSingle(),
+    supabase.from('shifts').select('type,study_start,study_end,shift_types(study_start,study_end)').eq('date', today).maybeSingle(),
     supabase.from('planned_sessions').select('*,topics(name,paper,section)').eq('scheduled_date', today).order('slot_time'),
     supabase.from('sessions').select('duration_mins,created_at'),
     supabase.from('topics').select('id,name,paper,ai_priority,user_topic_progress(status,is_flagged)'),
@@ -33,10 +33,10 @@ export default async function DashboardPage() {
 
   const name = user?.user_metadata?.full_name?.split(' ')[0] ?? 'Nischal'
 
-  const shiftRow = shift.data as { type: string; shift_types?: unknown } | null
+  const shiftRow = shift.data as { type: string; study_start?: string | null; study_end?: string | null; shift_types?: unknown } | null
   const st = shiftRow ? (Array.isArray(shiftRow.shift_types) ? shiftRow.shift_types[0] : shiftRow.shift_types) as { study_start: string; study_end: string } | null : null
   const todayShift = shiftRow
-    ? { type: shiftRow.type, study_start: st?.study_start ?? '', study_end: st?.study_end ?? '' }
+    ? { type: shiftRow.type, study_start: shiftRow.study_start ?? st?.study_start ?? '', study_end: shiftRow.study_end ?? st?.study_end ?? '' }
     : null
 
   return (

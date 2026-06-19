@@ -4,13 +4,14 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Pencil, Check, X, Loader2, GraduationCap, CalendarClock, Settings,
-  LogOut, Flame, Clock, BookCheck, Target, ChevronRight,
+  LogOut, Flame, Clock, BookCheck, Target, ChevronRight, CalendarDays,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { ExamDateDialog } from '@/components/shared/ExamDateDialog'
 import { SettingsSheet } from '@/components/settings/SettingsSheet'
+import { ShiftConfigDialog } from '@/components/profile/ShiftConfigDialog'
 
 interface Props {
   name: string
@@ -35,6 +36,7 @@ export function ProfileClient(props: Props) {
   const [signingOut, setSigningOut] = useState(false)
   const [dateOpen, setDateOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [shiftsOpen, setShiftsOpen] = useState(false)
 
   const initial = (name || props.email || '?').trim().charAt(0).toUpperCase()
   const readiness = props.topicsTotal > 0 ? Math.round((props.topicsDone / props.topicsTotal) * 100) : 0
@@ -147,6 +149,15 @@ export function ProfileClient(props: Props) {
           <span className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">{examDateLabel}</span>
           <ChevronRight size={15} className="text-gray-300 dark:text-gray-600 flex-shrink-0" aria-hidden="true" />
         </button>
+        <button
+          onClick={() => setShiftsOpen(true)}
+          className="w-full flex items-center gap-3 px-5 py-3.5 text-left border-t border-gray-100 dark:border-[#21262D] hover:bg-gray-50 dark:hover:bg-[#1C2128] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400"
+        >
+          <CalendarDays size={16} className="text-gray-400 flex-shrink-0" aria-hidden="true" />
+          <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">Shift schedule</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">A / B roster</span>
+          <ChevronRight size={15} className="text-gray-300 dark:text-gray-600 flex-shrink-0" aria-hidden="true" />
+        </button>
       </section>
 
       {/* Account */}
@@ -173,6 +184,7 @@ export function ProfileClient(props: Props) {
 
       <ExamDateDialog open={dateOpen} onOpenChange={setDateOpen} />
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <ShiftConfigDialog open={shiftsOpen} onOpenChange={setShiftsOpen} />
     </div>
   )
 }

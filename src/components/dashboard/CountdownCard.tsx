@@ -92,7 +92,14 @@ export function CountdownCard({ readiness, sessionCount, totalHours }: Countdown
         </div>
       </div>
     </button>
-    <ExamDateDialog open={dateOpen} onOpenChange={setDateOpen} />
+    <ExamDateDialog
+      open={dateOpen}
+      onOpenChange={setDateOpen}
+      onSaved={(date) => {
+        setExamDate(date)
+        setTimeLeft(calcTimeLeft(date))
+      }}
+    />
     </>
   )
 }

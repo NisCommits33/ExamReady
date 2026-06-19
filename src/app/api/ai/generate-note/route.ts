@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server'
 import { groqStream } from '@/lib/groq'
+import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import { getExamPromptContext } from '@/lib/exam'
+import { getTopicSource, sourceGroundingBlock } from '@/lib/source'
 
 export async function POST(req: Request) {
   const { topicId, topicName, paper, section, subsections, subtopicName } = await req.json()
   const examCtx = await getExamPromptContext()
   const focused = !!subtopicName
+
+  const supabase = await createClient()
+  const source = topicId ? await getTopicSource(supabase, topicId) : null
 
   const systemPrompt = focused
     ? `You are an expert study note writer for the ${examCtx} exam.
@@ -48,15 +53,23 @@ Write in clear English. Be specific. Target length: 700-1000 words.
 For regulations and acts, include specific section numbers and provisions.
 Keep mermaid diagrams simple and readable — max 8-10 nodes per diagram.`
 
-  logActivity('generate_note', topicId, { topic: topicName, paper, subtopic: subtopicName ?? null })
+  const systemPromptWithSource = source
+    ? `${systemPrompt}\n\nIMPORTANT: Prioritise the user-provided source material in the user message as the primary factual basis for this note.`
+    : systemPrompt
 
-  const userContent = focused
+  logActivity('generate_note', topicId, { topic: topicName, paper, subtopic: subtopicName ?? null, grounded: !!source })
+
+  const baseUserContent = focused
     ? `Generate a focused study note for the subtopic: ${subtopicName}\nParent topic: ${topicName}`
     : `Generate study note for: ${topicName}\nPaper: ${paper}, Section: ${section}\nSubsections: ${(subsections ?? []).join(', ')}`
 
+  const userContent = source
+    ? `${baseUserContent}\n\n${sourceGroundingBlock(source)}`
+    : baseUserContent
+
   try {
     const stream = await groqStream([
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: systemPromptWithSource },
       { role: 'user', content: userContent },
     ])
 

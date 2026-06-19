@@ -84,7 +84,8 @@ export function TimetableClient({ initialPlanned, shifts: initialShifts, session
     setShiftsData((sh ?? []).map(s => {
       const raw = (s as { shift_types?: unknown }).shift_types
       const st = (Array.isArray(raw) ? raw[0] : raw) as { study_start: string; study_end: string } | null
-      return { ...s, study_start: st?.study_start ?? '', study_end: st?.study_end ?? '' }
+      const row = s as { study_start?: string | null; study_end?: string | null }
+      return { ...s, study_start: row.study_start ?? st?.study_start ?? '', study_end: row.study_end ?? st?.study_end ?? '' }
     }) as Shift[])
     setSessionsData((se ?? []).map(s => ({
       date: s.date,

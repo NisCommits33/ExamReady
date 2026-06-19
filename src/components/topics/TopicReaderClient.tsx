@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { ArrowLeft, MessageSquare, Plus } from 'lucide-react'
+import { ArrowLeft, MessageSquare, Plus, Upload, Loader2, Pencil } from 'lucide-react'
 import { ChatPanel } from '@/components/ai/ChatPanel'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -12,9 +12,10 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn, relativeDate } from '@/lib/utils'
 import { Markdown } from '@/components/ui/Markdown'
+import { SimplifiableContent } from '@/components/shared/SimplifiableContent'
 import type { Topic, TopicNote, UserAnnotation, TopicStatus } from '@/types/database'
 
-type Tab = 'source' | 'note' | 'keypoints' | 'tips'
+type Tab = 'source' | 'your_source' | 'note' | 'keypoints' | 'tips'
 
 interface Props {
   topic: Topic
@@ -25,7 +26,8 @@ interface Props {
 export function TopicReaderClient({ topic, note: initialNote, annotations: initialAnnotations }: Props) {
   const router = useRouter()
   const hasSource = !!initialNote?.official_source
-  const [tab, setTab] = useState<Tab>(hasSource ? 'source' : 'note')
+  const hasUserSource = !!initialNote?.official_source_2
+  const [tab, setTab] = useState<Tab>(hasSource ? 'source' : hasUserSource ? 'your_source' : 'note')
   const [note, setNote] = useState<TopicNote | null>(initialNote)
   const [annotations, setAnnotations] = useState(initialAnnotations)
   const [status, setStatus] = useState<TopicStatus>(topic.status)
@@ -37,12 +39,59 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
   const [showAnnotation, setShowAnnotation] = useState(false)
   const readerRef = useRef<HTMLDivElement>(null)
 
+  // User-uploaded source ("Your source" tab)
+  const [editingSource, setEditingSource] = useState(false)
+  const [sourceDraft, setSourceDraft] = useState(initialNote?.official_source_2 ?? '')
+  const [uploadingSource, setUploadingSource] = useState(false)
+  const [savingSource, setSavingSource] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const tabs: { key: Tab; label: string }[] = [
     ...(hasSource ? [{ key: 'source' as Tab, label: 'Official source' }] : []),
+    { key: 'your_source', label: 'Your source' },
     { key: 'note',      label: 'AI note'     },
     { key: 'keypoints', label: 'Key points'  },
     { key: 'tips',      label: 'Exam tips'   },
   ]
+
+  async function handleSourceFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (e.target) e.target.value = '' // allow re-selecting the same file
+    if (!file) return
+    setUploadingSource(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/ai/extract-source', { method: 'POST', body: form })
+      const json = await res.json()
+      if (!res.ok || !json.text) {
+        toast.error(json.error ?? 'Could not extract text from file')
+        return
+      }
+      setSourceDraft(prev => (prev.trim() ? `${prev.trim()}\n\n${json.text}` : json.text))
+      toast.success('Text extracted — review and save')
+    } catch {
+      toast.error('Could not extract text from file')
+    } finally {
+      setUploadingSource(false)
+    }
+  }
+
+  async function saveSource() {
+    setSavingSource(true)
+    const value = sourceDraft.trim()
+    const supabase = createClient()
+    const { error } = await supabase.from('topic_notes').upsert({
+      topic_id: topic.id,
+      official_source_2: value || null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'topic_id' })
+    setSavingSource(false)
+    if (error) { toast.error('Failed to save source'); return }
+    setNote(prev => ({ ...(prev ?? {} as TopicNote), official_source_2: value || null }))
+    setEditingSource(false)
+    toast.success('Source saved')
+  }
 
   async function generateNote() {
     setGenerating(true)
@@ -199,6 +248,79 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
           </div>
         )}
 
+        {/* Your source — user-uploaded / pasted */}
+        {tab === 'your_source' && (
+          <div>
+            {!editingSource && note?.official_source_2 ? (
+              <div>
+                <div className="mb-4 flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-[#1C2128] border border-gray-200 dark:border-[#30363D] rounded-lg">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Your own source material — used to ground AI notes, MCQs and key numbers.</span>
+                  <button
+                    onClick={() => { setSourceDraft(note.official_source_2 ?? ''); setEditingSource(true) }}
+                    className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors"
+                  >
+                    <Pencil size={13} /> Edit
+                  </button>
+                </div>
+                <SimplifiableContent content={note.official_source_2} topicName={topic.name} preserveBreaks />
+              </div>
+            ) : !editingSource ? (
+              <div className="py-16 text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Add your own source material for this topic</p>
+                <button
+                  onClick={() => { setSourceDraft(''); setEditingSource(true) }}
+                  className="px-5 py-2.5 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-800 transition-colors active:scale-[0.98]"
+                >
+                  Add source
+                </button>
+              </div>
+            ) : (
+              <div className="border border-gray-200 dark:border-[#30363D] dark:bg-[#161B22] rounded-xl p-4">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={handleSourceFile}
+                  className="hidden"
+                />
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingSource}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 border border-brand-200 dark:border-brand-800 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors disabled:opacity-50"
+                  >
+                    {uploadingSource ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+                    {uploadingSource ? 'Extracting…' : 'Upload PDF / image'}
+                  </button>
+                  <span className="text-xs text-gray-400">or paste below</span>
+                </div>
+                <textarea
+                  value={sourceDraft}
+                  onChange={e => setSourceDraft(e.target.value)}
+                  rows={14}
+                  placeholder="Paste your source material here, or upload a PDF/image to extract its text…"
+                  className="w-full text-sm font-mono text-gray-700 dark:text-gray-100 dark:bg-transparent border border-gray-200 dark:border-[#30363D] rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-brand-400/30 focus:border-brand-400"
+                />
+                <div className="flex justify-end gap-2 mt-3">
+                  <button
+                    onClick={() => { setEditingSource(false); setSourceDraft(note?.official_source_2 ?? '') }}
+                    className="text-xs text-gray-400 px-3 py-1.5 hover:text-gray-600"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveSource}
+                    disabled={savingSource || uploadingSource}
+                    className="flex items-center gap-1.5 text-xs font-medium text-white bg-brand-600 px-3 py-1.5 rounded-lg hover:bg-brand-800 transition-colors disabled:opacity-50"
+                  >
+                    {savingSource && <Loader2 size={13} className="animate-spin" />} Save
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Study note */}
         {tab === 'note' && (
           <div>
@@ -304,7 +426,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
       </div>
 
       {/* Floating action bar */}
-      {(tab === 'note' || tab === 'source') && (
+      {(tab === 'note' || tab === 'source' || tab === 'your_source') && (
         <div className="fixed bottom-16 md:bottom-4 left-0 right-0 md:left-60 flex justify-center px-4 pointer-events-none z-30">
           <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl px-3 py-2 flex items-center gap-2 shadow-sm pointer-events-auto">
             <button

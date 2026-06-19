@@ -32,6 +32,34 @@ export async function geminiText(
 }
 
 /**
+ * Single-turn text generation grounded on live Google Search results.
+ * Returns the generated text plus any source URLs Gemini cited.
+ */
+export async function geminiSearchText(
+  system: string,
+  userMessage: string,
+  maxTokens = 4096,
+): Promise<{ text: string; sources: { title: string; uri: string }[] }> {
+  const response = await ai.models.generateContent({
+    model: MODEL_FAST,
+    contents: userMessage,
+    config: {
+      systemInstruction: system,
+      maxOutputTokens: maxTokens,
+      temperature: 0.4,
+      tools: [{ googleSearch: {} }],
+    },
+  })
+
+  const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks ?? []
+  const sources = chunks
+    .map(c => ({ title: c.web?.title ?? '', uri: c.web?.uri ?? '' }))
+    .filter(s => s.uri)
+
+  return { text: response.text ?? '', sources }
+}
+
+/**
  * JSON generation — prompts Gemini to return valid JSON and parses it.
  */
 export async function geminiJSON<T>(

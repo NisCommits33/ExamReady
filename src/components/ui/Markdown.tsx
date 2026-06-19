@@ -9,9 +9,14 @@ interface MarkdownProps {
   children: string
   className?: string
   compact?: boolean
+  /** Treat single newlines as line breaks — useful for raw pasted/plain text. */
+  preserveBreaks?: boolean
 }
 
-export function Markdown({ children, className, compact = false }: MarkdownProps) {
+export function Markdown({ children, className, compact = false, preserveBreaks = false }: MarkdownProps) {
+  // Markdown collapses single newlines; for plain pasted text keep them as hard breaks
+  // (two trailing spaces) while leaving blank-line paragraph breaks intact.
+  const content = preserveBreaks ? children.replace(/(?<!\n)\n(?!\n)/g, '  \n') : children
   return (
     <div className={cn(compact && 'text-sm', className)}>
     <ReactMarkdown
@@ -116,7 +121,7 @@ export function Markdown({ children, className, compact = false }: MarkdownProps
         ),
       }}
     >
-      {children}
+      {content}
     </ReactMarkdown>
     </div>
   )

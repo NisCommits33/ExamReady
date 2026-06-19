@@ -15,7 +15,7 @@ export async function POST() {
     const [{ data: rawTopics }, { data: sessions }, { data: shifts }] = await Promise.all([
       supabase.from('topics').select('id,name,paper,ai_priority,user_topic_progress(status,last_studied)'),
       supabase.from('sessions').select('topic_id,date,duration_mins').gte('date', format(addDays(today, -14), 'yyyy-MM-dd')),
-      supabase.from('shifts').select('date,type,shift_types(study_start,study_end)').gte('date', todayStr).lte('date', futureStr),
+      supabase.from('shifts').select('date,type,study_start,study_end,shift_types(study_start,study_end)').gte('date', todayStr).lte('date', futureStr),
     ])
 
     const topics = (rawTopics ?? []).map(t => {
@@ -27,7 +27,8 @@ export async function POST() {
     const flatShifts = (shifts ?? []).map(s => {
       const raw = s.shift_types as unknown
       const st = (Array.isArray(raw) ? raw[0] : raw) as { study_start: string; study_end: string } | null
-      return { date: s.date, type: s.type, study_start: st?.study_start, study_end: st?.study_end }
+      const row = s as { study_start?: string | null; study_end?: string | null }
+      return { date: s.date, type: s.type, study_start: row.study_start ?? st?.study_start, study_end: row.study_end ?? st?.study_end }
     })
 
     const daysLeft = daysToExam()

@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server'
 import { groqJSON } from '@/lib/groq'
+import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import { getExamPromptContext } from '@/lib/exam'
+import { getTopicSource, sourceGroundingBlock } from '@/lib/source'
 
 export async function POST(req: Request) {
   const { topicName, subsections, difficulty, topicId } = await req.json()
   const examCtx = await getExamPromptContext()
+
+  const supabase = await createClient()
+  const source = topicId ? await getTopicSource(supabase, topicId) : null
 
   const system = `You are an MCQ writer for the ${examCtx} exam.
 
@@ -31,11 +36,12 @@ Return JSON:
 }`
 
   try {
+    const baseUserContent = `Generate 5 MCQs for: "${topicName}"\nSubsections: ${subsections.join(', ')}\nDifficulty: ${difficulty}`
     const data = await groqJSON<{ questions: unknown[] }>([
       { role: 'system', content: system },
       {
         role: 'user',
-        content: `Generate 5 MCQs for: "${topicName}"\nSubsections: ${subsections.join(', ')}\nDifficulty: ${difficulty}`,
+        content: source ? `${baseUserContent}\n\n${sourceGroundingBlock(source)}` : baseUserContent,
       },
     ])
     logActivity('generate_mcq', topicId ?? null, { topic: topicName, difficulty, count: data.questions?.length })

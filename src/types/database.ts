@@ -70,6 +70,7 @@ export interface TopicNote {
   key_points: string | null
   exam_tips: string | null
   official_source: string | null
+  official_source_2: string | null
   model_answer_5mark: string | null
   model_answer_10mark: string | null
   generated_at: string | null

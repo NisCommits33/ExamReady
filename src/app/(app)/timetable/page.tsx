@@ -19,7 +19,8 @@ export default async function TimetablePage() {
   const flatShifts = (shifts ?? []).map(s => {
     const raw = s.shift_types as unknown
     const st = (Array.isArray(raw) ? raw[0] : raw) as { study_start: string; study_end: string } | null
-    return { ...s, study_start: st?.study_start ?? '', study_end: st?.study_end ?? '' }
+    const row = s as { study_start?: string | null; study_end?: string | null }
+    return { ...s, study_start: row.study_start ?? st?.study_start ?? '', study_end: row.study_end ?? st?.study_end ?? '' }
   })
 
   return (

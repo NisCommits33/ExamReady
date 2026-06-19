@@ -38,6 +38,19 @@ export async function groqStream(messages: Message[]): Promise<ReadableStream<Ui
 }
 
 /**
+ * Plain-text completion — returns the full response as a string (non-streaming).
+ */
+export async function groqText(messages: Message[], maxTokens = 4096): Promise<string> {
+  const res = await groq.chat.completions.create({
+    model: MODEL,
+    messages,
+    temperature: 0.4,
+    max_tokens: maxTokens,
+  })
+  return res.choices[0]?.message?.content ?? ''
+}
+
+/**
  * JSON: parses the model response as T. Uses response_format json_object
  * where supported, otherwise parses the raw text.
  */

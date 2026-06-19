@@ -10,10 +10,15 @@ export async function POST(req: Request) {
   const supabase = await createClient()
   const [{ data: topic }, { data: note }] = await Promise.all([
     supabase.from('topics').select('name,exam_id').eq('id', topicId).single(),
-    supabase.from('topic_notes').select('study_note,key_points,official_source').eq('topic_id', topicId).maybeSingle(),
+    supabase.from('topic_notes').select('study_note,key_points,official_source,official_source_2').eq('topic_id', topicId).maybeSingle(),
   ])
 
-  const source = [note?.key_points, note?.study_note, note?.official_source?.slice(0, 4000)].filter(Boolean).join('\n\n')
+  const source = [
+    note?.key_points,
+    note?.study_note,
+    note?.official_source_2?.slice(0, 4000),
+    note?.official_source?.slice(0, 4000),
+  ].filter(Boolean).join('\n\n')
   if (!source) return NextResponse.json({ error: 'No study material to extract from' }, { status: 400 })
 
   const system = `You extract exam-critical NUMBERS, DATES, and THRESHOLDS from study material for a competitive exam.

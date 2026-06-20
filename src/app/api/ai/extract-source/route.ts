@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 import { logActivity } from '@/lib/activity'
+import { recordUsage, quotaGuard } from '@/lib/usage'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
@@ -39,6 +41,10 @@ Extract ALL of the text content from this document as clean Markdown.
     const text = response.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
     if (!text.trim()) return NextResponse.json({ error: 'Could not extract any text' }, { status: 422 })
 
+    const u = response.usageMetadata
+    void recordUsage('gemini', 'gemini-2.0-flash', 'extract_source', {
+      prompt: u?.promptTokenCount ?? 0, completion: u?.candidatesTokenCount ?? 0, total: u?.totalTokenCount ?? 0,
+    })
     logActivity('extract_source', null, { fileType: file.type })
     return NextResponse.json({ text })
   } catch (e) {

@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { groqJSON } from '@/lib/groq'
 import { IQ_QUESTION_TYPES } from '@/lib/constants'
 import { logActivity } from '@/lib/activity'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { type, count, difficulty } = await req.json()
 
   const isRandom = type === 'random'
@@ -39,15 +41,16 @@ ${isNonVerbal
 Return JSON: { "questions": [ ... ] }`
 
   try {
+    const ctx = { action: 'generate_iq', tokens: 0 }
     const data = await groqJSON<{ questions: unknown[] }>([
       { role: 'system', content: system },
       {
         role: 'user',
         content: `Generate ${count} ${picked?.label ?? 'mixed reasoning'} questions (category: ${picked?.category ?? 'verbal'}). Difficulty mix: ${difficulty}.`,
       },
-    ])
+    ], ctx)
     logActivity('generate_iq', null, { type: picked?.id, category: picked?.category, count, difficulty })
-    return NextResponse.json(data)
+    return NextResponse.json(data, { headers: { 'X-AI-Tokens': String(ctx.tokens ?? 0) } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 })
   }

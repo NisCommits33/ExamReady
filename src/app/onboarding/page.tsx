@@ -7,7 +7,8 @@ export default async function OnboardingPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('onboarded, full_name').eq('id', user.id).maybeSingle()
+  const { data: profile } = await supabase.from('profiles').select('onboarded, full_name, role').eq('id', user.id).maybeSingle()
+  if (profile?.role === 'super_admin') redirect('/admin')
   if (profile?.onboarded) redirect('/')
 
   const { data: catalog } = await supabase

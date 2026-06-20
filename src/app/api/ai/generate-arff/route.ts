@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { groqJSON } from '@/lib/groq'
 import { ARFF_CATEGORIES } from '@/lib/constants'
 import { logActivity } from '@/lib/activity'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { category, count } = await req.json()
 
   const picked = category === 'random'
@@ -33,15 +35,16 @@ Return JSON:
 }`
 
   try {
+    const ctx = { action: 'generate_arff', tokens: 0 }
     const data = await groqJSON<{ questions: unknown[] }>([
       { role: 'system', content: system },
       {
         role: 'user',
         content: `Generate ${count ?? 10} ARFF MCQs on: "${picked?.label ?? 'General ARFF'}". Focus on exam-critical specifics: numbers, thresholds, procedures.`,
       },
-    ])
+    ], ctx)
     logActivity('generate_arff', null, { category: picked?.id, count: count ?? 10 })
-    return NextResponse.json(data)
+    return NextResponse.json(data, { headers: { 'X-AI-Tokens': String(ctx.tokens ?? 0) } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 })
   }

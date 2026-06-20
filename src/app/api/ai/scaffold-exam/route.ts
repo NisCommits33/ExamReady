@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { groqJSON } from '@/lib/groq'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
@@ -6,6 +7,7 @@ import { logActivity } from '@/lib/activity'
 type Kind = 'mcq_study' | 'aptitude' | 'written'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { examId, examName, syllabus } = await req.json()
   if (!examId) return NextResponse.json({ error: 'Missing examId' }, { status: 400 })
 
@@ -38,7 +40,7 @@ Rules:
     const data = await groqJSON<{ sections: { name: string; kind: Kind; topics?: { name: string; topic_number: string; subsections?: string[] }[] }[] }>([
       { role: 'system', content: system },
       { role: 'user', content: `Exam: ${examName ?? ''}\n\nSyllabus (may be empty):\n${(syllabus ?? '').slice(0, 6000)}` },
-    ])
+    ], { action: 'scaffold_exam' })
 
     const sections = (data.sections ?? []).slice(0, 6)
     let sectionCount = 0

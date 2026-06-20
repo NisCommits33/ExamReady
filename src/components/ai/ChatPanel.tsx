@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { X, Send, Loader2, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/ui/Markdown'
+import { notifyTokens } from '@/lib/notify-tokens'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -21,8 +22,24 @@ export function ChatPanel({ open, onClose, topicId, topicName }: ChatPanelProps)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
+  const [kbInset, setKbInset] = useState(0) // px the on-screen keyboard covers (mobile)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Keep the mobile bottom sheet above the on-screen keyboard via the VisualViewport API.
+  useEffect(() => {
+    if (!open) return
+    const vv = window.visualViewport
+    if (!vv) return
+    const onResize = () => {
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKbInset(window.innerWidth < 768 ? inset : 0)
+    }
+    onResize()
+    vv.addEventListener('resize', onResize)
+    vv.addEventListener('scroll', onResize)
+    return () => { vv.removeEventListener('resize', onResize); vv.removeEventListener('scroll', onResize); setKbInset(0) }
+  }, [open])
 
   useEffect(() => {
     if (open) {
@@ -68,6 +85,7 @@ export function ChatPanel({ open, onClose, topicId, topicName }: ChatPanelProps)
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let full = ''
+      let tokens = 0
 
       while (true) {
         const { done, value } = await reader.read()
@@ -78,16 +96,21 @@ export function ChatPanel({ open, onClose, topicId, topicName }: ChatPanelProps)
             const data = line.slice(6)
             if (data === '[DONE]') break
             try {
-              const delta = JSON.parse(data).choices?.[0]?.delta?.content ?? ''
-              full += delta
-              setMessages(prev => [
-                ...prev.slice(0, -1),
-                { role: 'assistant', content: full },
-              ])
+              const json = JSON.parse(data)
+              if (typeof json.tokens === 'number') tokens = json.tokens
+              const delta = json.choices?.[0]?.delta?.content ?? ''
+              if (delta) {
+                full += delta
+                setMessages(prev => [
+                  ...prev.slice(0, -1),
+                  { role: 'assistant', content: full },
+                ])
+              }
             } catch {}
           }
         }
       }
+      notifyTokens(tokens)
     } catch {
       setMessages(prev => [
         ...prev.slice(0, -1),
@@ -106,11 +129,14 @@ export function ChatPanel({ open, onClose, topicId, topicName }: ChatPanelProps)
       <div className="fixed inset-0 z-40 bg-black/20 dark:bg-black/50 md:hidden" onClick={onClose} />
 
       {/* Panel */}
-      <div className={cn(
-        'fixed z-50 flex flex-col bg-white dark:bg-[#161B22] shadow-2xl',
-        'bottom-0 left-0 right-0 h-[85dvh] rounded-t-2xl',
-        'md:top-0 md:bottom-0 md:right-0 md:left-auto md:h-full md:w-[400px] md:rounded-none md:rounded-l-2xl',
-      )}>
+      <div
+        style={kbInset > 0 ? { bottom: kbInset, height: `calc(85dvh - ${kbInset}px)` } : undefined}
+        className={cn(
+          'fixed z-50 flex flex-col bg-white dark:bg-[#161B22] shadow-2xl',
+          'bottom-0 left-0 right-0 h-[85dvh] rounded-t-2xl',
+          'md:top-0 md:bottom-0 md:right-0 md:left-auto md:h-full md:w-[400px] md:rounded-none md:rounded-l-2xl',
+        )}
+      >
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-[#30363D] flex-shrink-0">
           <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">

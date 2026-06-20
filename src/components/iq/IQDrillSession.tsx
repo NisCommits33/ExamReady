@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { IQ_QUESTION_TYPES, IQ_TIME_TARGET_S } from '@/lib/constants'
 import { saveDrillResult } from '@/lib/drill-results'
+import { notifyTokens, tokensFromRes } from '@/lib/notify-tokens'
 import { IQFigure, isSvg } from './IQFigure'
 import type { IQQuestion, IQType, Confidence } from '@/types/database'
 
@@ -51,6 +52,7 @@ export function IQDrillSession({ type, onBack }: Props) {
         body: JSON.stringify({ type, count: 10, difficulty: 'mixed' }),
       })
       const data = await res.json()
+      notifyTokens(tokensFromRes(res))
       setQuestions(data.questions ?? data)
       setPhase('confidence')
     } catch {

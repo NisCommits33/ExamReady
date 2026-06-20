@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { groqJSON } from '@/lib/groq'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { topicId, subtopicId, studyNote } = await req.json()
   if ((!topicId && !subtopicId) || !studyNote) {
     return NextResponse.json({ error: 'Missing topicId/subtopicId or studyNote' }, { status: 400 })
@@ -38,7 +40,7 @@ Be concise. No waffle. Every line must be exam-useful.`,
         role: 'user',
         content: `Extract key_points and exam_tips from this study note:\n\n${studyNote.slice(0, 4000)}`,
       },
-    ])
+    ], { action: 'extract_note_sections' })
 
     const supabase = await createClient()
     if (subtopicId) {

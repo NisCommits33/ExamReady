@@ -12,6 +12,9 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn, relativeDate } from '@/lib/utils'
 import { Markdown } from '@/components/ui/Markdown'
+import { isTextFile, readSourceFile } from '@/lib/source-file'
+import { readStream } from '@/lib/sse'
+import { notifyTokens } from '@/lib/notify-tokens'
 import { SimplifiableContent } from '@/components/shared/SimplifiableContent'
 import type { Topic, TopicNote, UserAnnotation, TopicStatus } from '@/types/database'
 
@@ -60,18 +63,12 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
     if (!file) return
     setUploadingSource(true)
     try {
-      const form = new FormData()
-      form.append('file', file)
-      const res = await fetch('/api/ai/extract-source', { method: 'POST', body: form })
-      const json = await res.json()
-      if (!res.ok || !json.text) {
-        toast.error(json.error ?? 'Could not extract text from file')
-        return
-      }
-      setSourceDraft(prev => (prev.trim() ? `${prev.trim()}\n\n${json.text}` : json.text))
-      toast.success('Text extracted — review and save')
-    } catch {
-      toast.error('Could not extract text from file')
+      const text = await readSourceFile(file)
+      if (!text.trim()) { toast.error('File was empty'); return }
+      setSourceDraft(prev => (prev.trim() ? `${prev.trim()}\n\n${text}` : text))
+      toast.success(isTextFile(file) ? 'File loaded — review and save' : 'Text extracted — review and save')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not read file')
     } finally {
       setUploadingSource(false)
     }
@@ -109,27 +106,8 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
         }),
       })
       if (!res.ok) throw new Error('Failed')
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let full = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') break
-            try {
-              const json = JSON.parse(data)
-              const delta = json.choices?.[0]?.delta?.content ?? ''
-              full += delta
-              setStreamText(full)
-            } catch {}
-          }
-        }
-      }
+      const { text: full, tokens } = await readStream(res, setStreamText)
+      notifyTokens(tokens)
       const supabase = createClient()
       await supabase.from('topic_notes').upsert({
         topic_id: topic.id,
@@ -279,7 +257,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*,.pdf"
+                  accept="image/*,.pdf,.md,.markdown,.txt,text/markdown,text/plain"
                   onChange={handleSourceFile}
                   className="hidden"
                 />
@@ -290,7 +268,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 border border-brand-200 dark:border-brand-800 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors disabled:opacity-50"
                   >
                     {uploadingSource ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
-                    {uploadingSource ? 'Extracting…' : 'Upload PDF / image'}
+                    {uploadingSource ? 'Reading…' : 'Upload MD / PDF / image'}
                   </button>
                   <span className="text-xs text-gray-400">or paste below</span>
                 </div>

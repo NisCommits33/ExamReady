@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Brain, Globe, Flame, Calendar, BarChart3, PlusCircle, LogOut, Hash, BookOpen, User } from 'lucide-react'
+import { Home, Brain, Globe, Flame, Calendar, BarChart3, PlusCircle, LogOut, Hash, BookOpen, User, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -16,17 +16,21 @@ interface SidebarProps {
   onLogSession?: () => void
   examName?: string
   sections?: NavSection[]
+  isSuperAdmin?: boolean
 }
 
-export function Sidebar({ onLogSession, examName = 'ExamReady', sections = [] }: SidebarProps) {
+export function Sidebar({ onLogSession, examName = 'ExamReady', sections = [], isSuperAdmin = false }: SidebarProps) {
   const sectionNav = sections.map(s => ({ href: `/s/${s.id}`, label: s.name, Icon: KIND_ICON[s.kind] ?? BookOpen }))
-  const NAV = [
-    { href: '/',          label: 'Home',        Icon: Home      },
-    ...sectionNav,
-    { href: '/numbers',   label: 'Key Numbers', Icon: Hash      },
-    { href: '/timetable', label: 'Timetable',   Icon: Calendar  },
-    { href: '/progress',  label: 'Progress',    Icon: BarChart3 },
-  ]
+  // Super admins are not students — they only get the Admin view.
+  const NAV = isSuperAdmin
+    ? [{ href: '/admin', label: 'Admin', Icon: Shield }]
+    : [
+        { href: '/',          label: 'Home',        Icon: Home      },
+        ...sectionNav,
+        { href: '/numbers',   label: 'Key Numbers', Icon: Hash      },
+        { href: '/timetable', label: 'Timetable',   Icon: Calendar  },
+        { href: '/progress',  label: 'Progress',    Icon: BarChart3 },
+      ]
   const pathname = usePathname()
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
@@ -90,15 +94,19 @@ export function Sidebar({ onLogSession, examName = 'ExamReady', sections = [] }:
 
       {/* Bottom */}
       <div className="px-3 pb-4 border-t border-gray-100 dark:border-[#30363D] pt-3 space-y-2">
-        <ExamCountdown compact />
+        {!isSuperAdmin && (
+          <>
+            <ExamCountdown compact />
 
-        <button
-          onClick={onLogSession}
-          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium bg-brand-600 text-white hover:bg-brand-800 transition-colors duration-150"
-        >
-          <PlusCircle size={16} strokeWidth={2} />
-          Log session
-        </button>
+            <button
+              onClick={onLogSession}
+              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium bg-brand-600 text-white hover:bg-brand-800 transition-colors duration-150"
+            >
+              <PlusCircle size={16} strokeWidth={2} />
+              Log session
+            </button>
+          </>
+        )}
 
         <button
           onClick={handleSignOut}

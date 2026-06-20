@@ -5,6 +5,8 @@ import { Sparkles, BookOpen, Loader2, Globe } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/ui/Markdown'
+import { readStream } from '@/lib/sse'
+import { notifyTokens, tokensFromRes } from '@/lib/notify-tokens'
 
 interface Props {
   content: string
@@ -39,21 +41,9 @@ export function SimplifiableContent({ content, topicName, header, preserveBreaks
         body: JSON.stringify({ text: content, topicName }),
       })
       if (!res.ok) throw new Error('Failed')
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let full = ''
       setView('simplified')
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        for (const line of decoder.decode(value).split('\n')) {
-          if (line.startsWith('data: ')) {
-            const d = line.slice(6)
-            if (d === '[DONE]') break
-            try { full += JSON.parse(d).choices?.[0]?.delta?.content ?? ''; setStreamText(full) } catch {}
-          }
-        }
-      }
+      const { text: full, tokens } = await readStream(res, setStreamText)
+      notifyTokens(tokens)
       setSimplified(full)
     } catch {
       toast.error('Failed to simplify')
@@ -74,6 +64,7 @@ export function SimplifiableContent({ content, topicName, header, preserveBreaks
       })
       const json = await res.json()
       if (!res.ok || !json.text) { toast.error(json.error ?? 'Failed to elaborate'); return }
+      notifyTokens(tokensFromRes(res))
       setElaborated(json.text)
       setSources(json.sources ?? [])
       setElaboratedWeb(json.web !== false)

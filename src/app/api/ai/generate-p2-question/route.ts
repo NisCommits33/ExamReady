@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { groqJSON } from '@/lib/groq'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import { getExamPromptContext } from '@/lib/exam'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { topicName, subsections, marks, topicId } = await req.json()
   if (!topicName || !marks) {
     return NextResponse.json({ error: 'Missing topicName or marks' }, { status: 400 })
@@ -33,6 +35,7 @@ export async function POST(req: Request) {
     : ''
 
   try {
+    const ctx = { action: 'generate_p2_question', tokens: 0 }
     const data = await groqJSON<{ question: string; hints: string[] }>([
       {
         role: 'system',
@@ -68,10 +71,10 @@ Make the question specific to the topic, not generic. Ground it in this exam's r
         role: 'user',
         content: `Topic: ${topicName}\nSubsections: ${(subsections ?? []).join(', ')}\nMarks: ${markCount}`,
       },
-    ])
+    ], ctx)
 
     logActivity('generate_p2_question', topicId, { marks: markCount, question: data.question })
-    return NextResponse.json({ question: data.question, hints: data.hints, marks: markCount })
+    return NextResponse.json({ question: data.question, hints: data.hints, marks: markCount }, { headers: { 'X-AI-Tokens': String(ctx.tokens ?? 0) } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 })
   }

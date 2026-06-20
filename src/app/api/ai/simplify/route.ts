@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { groqStream } from '@/lib/groq'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
@@ -42,6 +43,7 @@ function passThroughAndStore(src: ReadableStream<Uint8Array>, onDone: (full: str
 }
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { text, topicName } = await req.json()
   if (!text) return NextResponse.json({ error: 'Missing text' }, { status: 400 })
 
@@ -69,7 +71,7 @@ Rules:
     const stream = await groqStream([
       { role: 'system', content: system },
       { role: 'user', content: `Topic: ${topicName ?? 'General'}\n\nSimplify this:\n\n${String(text).slice(0, 8000)}` },
-    ])
+    ], { action: 'simplify' })
 
     logActivity('simplify', null, { topic: topicName })
 

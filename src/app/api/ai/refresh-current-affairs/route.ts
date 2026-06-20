@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { groqJSON } from '@/lib/groq'
 import { createClient } from '@/lib/supabase/server'
 import { getExamPromptContext } from '@/lib/exam'
 import { logActivity } from '@/lib/activity'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { subtopicId, digest } = await req.json()
   if (!subtopicId) return NextResponse.json({ error: 'Missing subtopicId' }, { status: 400 })
 
@@ -36,7 +38,7 @@ Return JSON:
     const data = await groqJSON<{ study_note: string; key_points: string }>([
       { role: 'system', content: system },
       { role: 'user', content: `Subtopic: ${subtopic.name}\nAs of: ${today}${hasDigest ? `\n\nRecent digest:\n${String(digest).slice(0, 6000)}` : ''}` },
-    ])
+    ], { action: 'refresh_current_affairs' })
 
     await supabase.from('subtopics').update({
       study_note: data.study_note,

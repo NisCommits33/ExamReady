@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { groqJSON } from '@/lib/groq'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { topicId } = await req.json()
   if (!topicId) return NextResponse.json({ error: 'Missing topicId' }, { status: 400 })
 
@@ -35,7 +37,7 @@ Rules:
     const data = await groqJSON<{ numbers: { fact: string; value: string }[] }>([
       { role: 'system', content: system },
       { role: 'user', content: `Topic: ${topic?.name ?? ''}\n\nMaterial:\n${source}` },
-    ])
+    ], { action: 'extract_numbers' })
 
     const numbers = (data.numbers ?? []).filter(n => n.fact && n.value)
 

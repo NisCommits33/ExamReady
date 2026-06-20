@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { groqJSON } from '@/lib/groq'
 import { logActivity } from '@/lib/activity'
 import { getExamPromptContext } from '@/lib/exam'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { topicName, questionType, userAnswer, modelAnswer, questionContext, gradingHints } = await req.json()
   const examCtx = await getExamPromptContext()
 
@@ -33,6 +35,7 @@ Return JSON:
   userParts.push(`\nStudent answer:\n${userAnswer}`)
 
   try {
+    const ctx = { action: 'grade_answer', tokens: 0 }
     const data = await groqJSON<{
       score: number
       feedback: string
@@ -42,9 +45,9 @@ Return JSON:
     }>([
       { role: 'system', content: system },
       { role: 'user', content: userParts.join('\n') },
-    ])
+    ], ctx)
     logActivity('grade_answer', null, { topic: topicName, marks, score: data.score })
-    return NextResponse.json(data)
+    return NextResponse.json(data, { headers: { 'X-AI-Tokens': String(ctx.tokens ?? 0) } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 })
   }

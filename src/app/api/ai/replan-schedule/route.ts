@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { createClient } from '@/lib/supabase/server'
 import { groqJSON } from '@/lib/groq'
 import { logActivity } from '@/lib/activity'
@@ -6,6 +7,7 @@ import { daysToExam } from '@/lib/utils'
 import { addDays, format } from 'date-fns'
 
 export async function POST() {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   try {
     const supabase = await createClient()
     const today = new Date()
@@ -61,7 +63,7 @@ Return JSON: { "sessions": [{ "topic_id": "uuid or null", "scheduled_date": "YYY
         role: 'user',
         content: JSON.stringify({ daysRemaining: daysLeft, topics: pendingTopics, recentSessions: sessions ?? [], shifts: flatShifts }),
       },
-    ])
+    ], { action: 'replan_schedule' })
 
     await supabase.from('planned_sessions').delete().gte('scheduled_date', todayStr).eq('completed', false)
 

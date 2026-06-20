@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { createClient } from '@/lib/supabase/server'
 import { groqJSON } from '@/lib/groq'
 import { logActivity } from '@/lib/activity'
@@ -6,6 +7,7 @@ import { format, startOfWeek, subDays } from 'date-fns'
 import { daysToExam } from '@/lib/utils'
 
 export async function POST() {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   try {
     const supabase = await createClient()
     const today = new Date()
@@ -45,7 +47,7 @@ Recent sessions: ${JSON.stringify((sessions ?? []).slice(0, 8))}
 
 Write 5 lines: 1) What improved 2) What stalled 3) Biggest risk 4) One specific fix 5) Projected readiness on current trajectory`,
       },
-    ])
+    ], { action: 'weekly_report' })
 
     const { data: saved } = await supabase
       .from('weekly_reports')

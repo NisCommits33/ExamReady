@@ -1,9 +1,14 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardClient } from '@/components/dashboard/DashboardClient'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Super admins have no student dashboard — send them to the admin view.
+  const { data: me } = await supabase.from('profiles').select('role').eq('id', user!.id).maybeSingle()
+  if (me?.role === 'super_admin') redirect('/admin')
 
   const today = new Date().toISOString().split('T')[0]
 

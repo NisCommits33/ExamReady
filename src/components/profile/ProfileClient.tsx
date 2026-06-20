@@ -25,6 +25,14 @@ interface Props {
   totalHours: number
   topicsDone: number
   topicsTotal: number
+  tokensUsed: number
+  tokenAllocation: number | null
+}
+
+function fmtTok(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+  return String(n)
 }
 
 export function ProfileClient(props: Props) {
@@ -40,6 +48,7 @@ export function ProfileClient(props: Props) {
 
   const initial = (name || props.email || '?').trim().charAt(0).toUpperCase()
   const readiness = props.topicsTotal > 0 ? Math.round((props.topicsDone / props.topicsTotal) * 100) : 0
+  const isAdmin = props.role === 'super_admin'
 
   async function saveName() {
     if (!draft.trim()) { toast.error('Name can\'t be empty'); return }
@@ -119,6 +128,7 @@ export function ProfileClient(props: Props) {
       </section>
 
       {/* Stats */}
+      {!isAdmin && (
       <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4" aria-label="Study statistics">
         {stats.map(s => (
           <div key={s.label} className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl p-3.5">
@@ -128,8 +138,46 @@ export function ProfileClient(props: Props) {
           </div>
         ))}
       </section>
+      )}
+
+      {/* AI tokens (this month) */}
+      {!isAdmin && (
+        <section className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">AI tokens — this month</p>
+            {props.tokenAllocation === null && <span className="text-[11px] text-gray-400">Unlimited</span>}
+          </div>
+          {props.tokenAllocation === null ? (
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="tabular-nums font-medium text-gray-900 dark:text-gray-100">{fmtTok(props.tokensUsed)}</span> tokens used
+            </p>
+          ) : (() => {
+            const remaining = Math.max(0, props.tokenAllocation - props.tokensUsed)
+            const pct = Math.min(100, Math.round((props.tokensUsed / props.tokenAllocation) * 100))
+            return (
+              <>
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <span className="tabular-nums font-medium text-gray-900 dark:text-gray-100">{fmtTok(remaining)}</span> left
+                    <span className="text-gray-400"> of {fmtTok(props.tokenAllocation)}</span>
+                  </p>
+                  <span className="text-xs text-gray-400 tabular-nums">{pct}% used</span>
+                </div>
+                <div className="w-full h-2 bg-gray-100 dark:bg-[#1C2128] rounded-full overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-red-500' : pct >= 80 ? 'bg-amber-500' : 'bg-brand-500')}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                {remaining === 0 && <p className="text-[11px] text-red-500 mt-1.5">You&apos;ve hit your monthly limit. Resets next month.</p>}
+              </>
+            )
+          })()}
+        </section>
+      )}
 
       {/* Active exam */}
+      {!isAdmin && (
       <section className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl mb-4 overflow-hidden">
         <div className="px-5 py-4 flex items-center gap-3 border-b border-gray-100 dark:border-[#21262D]">
           <div className="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center flex-shrink-0">
@@ -159,8 +207,10 @@ export function ProfileClient(props: Props) {
           <ChevronRight size={15} className="text-gray-300 dark:text-gray-600 flex-shrink-0" aria-hidden="true" />
         </button>
       </section>
+      )}
 
       {/* Account */}
+      {!isAdmin && (
       <section className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl mb-4 overflow-hidden">
         <button
           onClick={() => setSettingsOpen(true)}
@@ -171,6 +221,7 @@ export function ProfileClient(props: Props) {
           <ChevronRight size={15} className="text-gray-300 dark:text-gray-600 flex-shrink-0" aria-hidden="true" />
         </button>
       </section>
+      )}
 
       {/* Destructive — visually separated */}
       <button

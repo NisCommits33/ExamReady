@@ -10,6 +10,8 @@ import { LoadingStream, StreamingSkeleton } from '@/components/shared/LoadingStr
 import { Flashcards } from '@/components/shared/Flashcards'
 import { GKDrillPanel } from '@/components/gk/GKDrillPanel'
 import { createClient } from '@/lib/supabase/client'
+import { readStream } from '@/lib/sse'
+import { notifyTokens } from '@/lib/notify-tokens'
 import type { Topic, Subtopic } from '@/types/database'
 
 type SubTab = 'study' | 'practice' | 'flashcards'
@@ -33,19 +35,8 @@ export function SubtopicDetail({ topic, subtopic, onBack }: { topic: Topic; subt
         body: JSON.stringify({ topicId: topic.id, topicName: topic.name, paper: topic.paper, section: topic.section, subtopicName: subtopic.name }),
       })
       if (!res.ok) throw new Error('Failed')
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let full = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        for (const line of decoder.decode(value).split('\n')) {
-          if (line.startsWith('data: ')) {
-            const d = line.slice(6); if (d === '[DONE]') break
-            try { full += JSON.parse(d).choices?.[0]?.delta?.content ?? ''; setStreamText(full) } catch {}
-          }
-        }
-      }
+      const { text: full, tokens } = await readStream(res, setStreamText)
+      notifyTokens(tokens)
       const supabase = createClient()
       await supabase.from('subtopics').update({ study_note: full, generated_at: new Date().toISOString() }).eq('id', subtopic.id)
       setNote(prev => ({ ...prev, study_note: full }))

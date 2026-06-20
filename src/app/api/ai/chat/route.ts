@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { groqStream } from '@/lib/groq'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import { getExamPromptContext } from '@/lib/exam'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { messages, topicId } = await req.json()
   const examCtx = await getExamPromptContext()
 
@@ -32,7 +34,7 @@ Answer concisely in 2-4 sentences unless a longer explanation is needed. Referen
     const stream = await groqStream([
       { role: 'system', content: system },
       ...messages.slice(-12),
-    ])
+    ], { action: 'ai_chat' })
 
     return new Response(stream, {
       headers: {

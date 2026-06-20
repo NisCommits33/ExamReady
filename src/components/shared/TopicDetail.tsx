@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, type ReactNode } from 'react'
-import { BookOpen, PenLine, MessageSquare, Plus, ChevronRight, Layers, RefreshCw, Upload, Loader2, Pencil } from 'lucide-react'
+import { BookOpen, PenLine, MessageSquare, Plus, ChevronRight, ChevronDown, Layers, RefreshCw, Upload, Loader2, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn, relativeDate } from '@/lib/utils'
 import { ChatPanel } from '@/components/ai/ChatPanel'
@@ -12,6 +12,9 @@ import { StatusToggle } from '@/components/shared/StatusToggle'
 import { SubtopicDetail } from '@/components/shared/SubtopicDetail'
 import { fetchSubtopics } from '@/lib/subtopics'
 import { createClient } from '@/lib/supabase/client'
+import { isTextFile, readSourceFile } from '@/lib/source-file'
+import { readStream } from '@/lib/sse'
+import { notifyTokens } from '@/lib/notify-tokens'
 import type { Topic, TopicNote, TopicStatus, UserAnnotation, Subtopic } from '@/types/database'
 
 type SubTab = 'study' | 'practice'
@@ -39,6 +42,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
   const [status, setStatus] = useState<TopicStatus>(topic.status)
   const [subtopics, setSubtopics] = useState<Subtopic[]>([])
   const [selectedSubtopic, setSelectedSubtopic] = useState<Subtopic | null>(null)
+  const [subtopicsOpen, setSubtopicsOpen] = useState(true)
 
   // User-uploaded source ("Your source" tab)
   const [editingSource, setEditingSource] = useState(false)
@@ -72,19 +76,8 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
         body: JSON.stringify({ topicId: topic.id, topicName: topic.name, paper: topic.paper, section: topic.section, subsections: topic.subsections }),
       })
       if (!res.ok) throw new Error('Failed')
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let full = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        for (const line of decoder.decode(value).split('\n')) {
-          if (line.startsWith('data: ')) {
-            const d = line.slice(6); if (d === '[DONE]') break
-            try { full += JSON.parse(d).choices?.[0]?.delta?.content ?? ''; setStreamText(full) } catch {}
-          }
-        }
-      }
+      const { text: full, tokens } = await readStream(res, setStreamText)
+      notifyTokens(tokens)
       const supabase = createClient()
       await supabase.from('topic_notes').upsert({ topic_id: topic.id, study_note: full, generated_at: new Date().toISOString(), model_used: 'llama-3.3-70b-versatile', updated_at: new Date().toISOString() })
       setTopicNote(prev => ({ ...(prev ?? {} as TopicNote), study_note: full }))
@@ -118,14 +111,11 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
     if (!file) return
     setUploadingSource(true)
     try {
-      const form = new FormData()
-      form.append('file', file)
-      const res = await fetch('/api/ai/extract-source', { method: 'POST', body: form })
-      const json = await res.json()
-      if (!res.ok || !json.text) { toast.error(json.error ?? 'Could not extract text from file'); return }
-      setSourceDraft(prev => (prev.trim() ? `${prev.trim()}\n\n${json.text}` : json.text))
-      toast.success('Text extracted — review and save')
-    } catch { toast.error('Could not extract text from file') } finally { setUploadingSource(false) }
+      const text = await readSourceFile(file)
+      if (!text.trim()) { toast.error('File was empty'); return }
+      setSourceDraft(prev => (prev.trim() ? `${prev.trim()}\n\n${text}` : text))
+      toast.success(isTextFile(file) ? 'File loaded — review and save' : 'Text extracted — review and save')
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Could not read file') } finally { setUploadingSource(false) }
   }
 
   async function saveSource() {
@@ -178,11 +168,18 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
         <div>
           {subtopics.length > 0 && (
             <div className="mb-5">
-              <div className="flex items-center gap-1.5 mb-2">
+              <button
+                onClick={() => setSubtopicsOpen(o => !o)}
+                aria-expanded={subtopicsOpen}
+                className="flex items-center gap-1.5 mb-2 w-full text-left group"
+              >
                 <Layers size={13} className="text-brand-500" />
                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Subtopics</p>
                 <span className="text-[11px] text-gray-400">· {subtopics.length}</span>
-              </div>
+                <ChevronDown size={14} className={cn('text-gray-400 ml-auto transition-transform duration-150 group-hover:text-gray-600 dark:group-hover:text-gray-300', !subtopicsOpen && '-rotate-90')} />
+              </button>
+              {subtopicsOpen && (
+              <>
               <div className="grid sm:grid-cols-2 gap-2">
                 {subtopics.map(st => (
                   <button
@@ -202,6 +199,8 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
                 ))}
               </div>
               <p className="text-[11px] text-gray-400 mt-2">Or read the whole-topic overview below.</p>
+              </>
+              )}
             </div>
           )}
 
@@ -244,11 +243,11 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
                 </div>
               ) : (
                 <div className="border border-gray-200 dark:border-[#30363D] dark:bg-[#161B22] rounded-xl p-4">
-                  <input ref={fileInputRef} type="file" accept="image/*,.pdf" onChange={handleSourceFile} className="hidden" />
+                  <input ref={fileInputRef} type="file" accept="image/*,.pdf,.md,.markdown,.txt,text/markdown,text/plain" onChange={handleSourceFile} className="hidden" />
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <button onClick={() => fileInputRef.current?.click()} disabled={uploadingSource} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 border border-brand-200 dark:border-brand-800 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors disabled:opacity-50">
                       {uploadingSource ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
-                      {uploadingSource ? 'Extracting…' : 'Upload PDF / image'}
+                      {uploadingSource ? 'Reading…' : 'Upload MD / PDF / image'}
                     </button>
                     <span className="text-xs text-gray-400">or paste below</span>
                   </div>

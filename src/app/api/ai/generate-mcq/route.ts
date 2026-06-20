@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { groqJSON } from '@/lib/groq'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
@@ -6,6 +7,7 @@ import { getExamPromptContext } from '@/lib/exam'
 import { getTopicSource, sourceGroundingBlock } from '@/lib/source'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { topicName, subsections, difficulty, topicId } = await req.json()
   const examCtx = await getExamPromptContext()
 
@@ -37,15 +39,16 @@ Return JSON:
 
   try {
     const baseUserContent = `Generate 5 MCQs for: "${topicName}"\nSubsections: ${subsections.join(', ')}\nDifficulty: ${difficulty}`
+    const ctx = { action: 'generate_mcq', tokens: 0 }
     const data = await groqJSON<{ questions: unknown[] }>([
       { role: 'system', content: system },
       {
         role: 'user',
         content: source ? `${baseUserContent}\n\n${sourceGroundingBlock(source)}` : baseUserContent,
       },
-    ])
+    ], ctx)
     logActivity('generate_mcq', topicId ?? null, { topic: topicName, difficulty, count: data.questions?.length })
-    return NextResponse.json(data)
+    return NextResponse.json(data, { headers: { 'X-AI-Tokens': String(ctx.tokens ?? 0) } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 })
   }

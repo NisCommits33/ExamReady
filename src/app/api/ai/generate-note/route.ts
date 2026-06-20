@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { groqStream } from '@/lib/groq'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
@@ -6,6 +7,7 @@ import { getExamPromptContext } from '@/lib/exam'
 import { getTopicSource, sourceGroundingBlock } from '@/lib/source'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { topicId, topicName, paper, section, subsections, subtopicName } = await req.json()
   const examCtx = await getExamPromptContext()
   const focused = !!subtopicName
@@ -71,7 +73,7 @@ Keep mermaid diagrams simple and readable — max 8-10 nodes per diagram.`
     const stream = await groqStream([
       { role: 'system', content: systemPromptWithSource },
       { role: 'user', content: userContent },
-    ])
+    ], { action: 'generate_note' })
 
     return new Response(stream, {
       headers: {

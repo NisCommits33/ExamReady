@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 import { logActivity } from '@/lib/activity'
+import { recordUsage, quotaGuard } from '@/lib/usage'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
@@ -40,6 +42,10 @@ Extract the exact question text from this image.
     const questionText = response.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
     if (!questionText) return NextResponse.json({ error: 'Could not extract question' }, { status: 422 })
 
+    const u = response.usageMetadata
+    void recordUsage('gemini', 'gemini-2.0-flash', 'extract_p2_question', {
+      prompt: u?.promptTokenCount ?? 0, completion: u?.candidatesTokenCount ?? 0, total: u?.totalTokenCount ?? 0,
+    })
     logActivity('extract_p2_question', null, { fileType: file.type })
     return NextResponse.json({ question: questionText })
   } catch (e) {

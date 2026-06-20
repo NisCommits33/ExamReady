@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/ui/Markdown'
+import { notifyTokens, tokensFromRes } from '@/lib/notify-tokens'
 import type { Topic, TopicNote, P2Answer, QuestionType } from '@/types/database'
 
 interface Props {
@@ -54,6 +55,7 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
         }),
       })
       const data = await res.json()
+      notifyTokens(tokensFromRes(res))
       if (data.question) {
         setQuestion(data.question)
         setQuestionHints(data.hints ?? [])
@@ -111,6 +113,7 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
         }),
       })
       const result: GradeResult = await res.json()
+      notifyTokens(tokensFromRes(res))
 
       const supabase = createClient()
       const { data } = await supabase.from('p2_answers').insert({

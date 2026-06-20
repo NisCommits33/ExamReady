@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { createClient } from '@/lib/supabase/server'
 import { geminiText } from '@/lib/gemini'
 import { groqJSON } from '@/lib/groq'
@@ -7,6 +8,7 @@ import { daysToExam } from '@/lib/utils'
 import { addDays, format } from 'date-fns'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { topicId } = await req.json()
 
   try {
@@ -40,7 +42,8 @@ Write a 300-word focused rescue note covering ONLY the most exam-critical facts.
 Format: numbered key points, include one important number/date/threshold per point where applicable.
 End with 3 "MUST MEMORIZE" items in bold.`,
       1024,
-      true // use thinking model
+      true, // use thinking model
+      { action: 'rescue_agent' },
     )
 
     // Groq handles the fast MCQ generation
@@ -53,7 +56,7 @@ End with 3 "MUST MEMORIZE" items in bold.`,
         role: 'user',
         content: `Generate 10 MCQs for: "${topic.name}". Target common mistakes, include exact figures and thresholds.`,
       },
-    ])
+    ], { action: 'rescue_agent' })
 
     const rescueSessions = (shifts ?? []).slice(0, 3).map((shift, i) => ({
       topic_id: topicId,

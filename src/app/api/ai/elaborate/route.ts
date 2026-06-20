@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { quotaGuard } from '@/lib/usage'
 import { geminiSearchText } from '@/lib/gemini'
 import { groqText } from '@/lib/groq'
 import { createClient } from '@/lib/supabase/server'
@@ -7,6 +8,7 @@ import { logActivity } from '@/lib/activity'
 import { hashContent, getCachedTransform, saveTransform } from '@/lib/ai-cache'
 
 export async function POST(req: Request) {
+  const blocked = await quotaGuard(); if (blocked) return blocked
   const { text, topicName } = await req.json()
   if (!text) return NextResponse.json({ error: 'Missing text' }, { status: 400 })
 
@@ -25,6 +27,9 @@ export async function POST(req: Request) {
 - Keep EVERY exam-critical number, date, threshold and section reference from the source.
 - Stay strictly on this topic. Do not invent facts you cannot support.`
 
+  const ctx: { action: string; tokens?: number } = { action: 'elaborate' }
+  const tokenHeader = () => ({ 'X-AI-Tokens': String(ctx.tokens ?? 0) })
+
   // Primary: Gemini with live Google Search grounding.
   try {
     const system = `You are an expert tutor for the ${examCtx} exam. Expand and ELABORATE the provided material into a comprehensive, well-structured study explanation.
@@ -36,11 +41,13 @@ Rules:
     const { text: elaborated, sources } = await geminiSearchText(
       system,
       `Topic: ${topicName ?? 'General'}\n\nElaborate this material:\n\n${material}`,
+      4096,
+      ctx,
     )
     if (elaborated.trim()) {
       await saveTransform(supabase, hash, 'elaborate', elaborated, { sources, web: true, topicName })
       logActivity('elaborate', null, { topic: topicName, sources: sources.length, web: true })
-      return NextResponse.json({ text: elaborated, sources, web: true })
+      return NextResponse.json({ text: elaborated, sources, web: true }, { headers: tokenHeader() })
     }
   } catch (e) {
     console.error('elaborate: Gemini failed, falling back to Groq —', String(e))
@@ -56,12 +63,12 @@ Rules:
     const elaborated = await groqText([
       { role: 'system', content: system },
       { role: 'user', content: `Topic: ${topicName ?? 'General'}\n\nElaborate this material:\n\n${material}` },
-    ])
+    ], 4096, ctx)
     if (!elaborated.trim()) return NextResponse.json({ error: 'No elaboration produced' }, { status: 502 })
 
     await saveTransform(supabase, hash, 'elaborate', elaborated, { sources: [], web: false, topicName })
     logActivity('elaborate', null, { topic: topicName, sources: 0, web: false })
-    return NextResponse.json({ text: elaborated, sources: [], web: false })
+    return NextResponse.json({ text: elaborated, sources: [], web: false }, { headers: tokenHeader() })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 })
   }

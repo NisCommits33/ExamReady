@@ -5,6 +5,7 @@ import { Loader2, Timer } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { saveDrillResult } from '@/lib/drill-results'
+import { notifyTokens, tokensFromRes } from '@/lib/notify-tokens'
 import type { Topic } from '@/types/database'
 
 interface Subtopic { id: string; name: string }
@@ -46,6 +47,7 @@ export function GKDrillPanel({ topic, subtopic }: { topic: Topic; subtopic?: Sub
         ),
       })
       const data = await res.json()
+      notifyTokens(tokensFromRes(res))
       setQuestions(data.questions ?? [])
       setPhase('question')
       const ref = setInterval(() => setElapsed(e => e + 1), 1000)

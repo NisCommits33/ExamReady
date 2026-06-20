@@ -155,8 +155,8 @@
     "semantic_hash": ""
   },
   "src/app/api/ai/generate-mcq/route.ts": {
-    "mtime": 1781957208.9787645,
-    "ast_hash": "ef3840cdd65cd50aa4cd09bf37632961",
+    "mtime": 1781959553.0143259,
+    "ast_hash": "e7675f04431b36db6711b904c5158ffd",
     "semantic_hash": ""
   },
   "src/app/api/ai/generate-note/route.ts": {
@@ -325,13 +325,13 @@
     "semantic_hash": ""
   },
   "src/components/gk/GKClient.tsx": {
-    "mtime": 1781713649.5265906,
-    "ast_hash": "db7b9b6ba8c606afd60451ea35d043e9",
+    "mtime": 1781959895.7478907,
+    "ast_hash": "1135825cd3a2e6e34259bbdcff73789a",
     "semantic_hash": ""
   },
   "src/components/gk/GKDrillPanel.tsx": {
-    "mtime": 1781957550.025535,
-    "ast_hash": "fa7edd779c94e8b4a0872b557aae7320",
+    "mtime": 1781959825.7299104,
+    "ast_hash": "183bcde224f0a0a6722035515969bf70",
     "semantic_hash": ""
   },
   "src/components/iq/IQClient.tsx": {
@@ -620,8 +620,8 @@
     "semantic_hash": ""
   },
   "src/lib/admin.ts": {
-    "mtime": 1781955863.7425911,
-    "ast_hash": "25ad533a100b002e350a2596bd3ceaaf",
+    "mtime": 1781959632.128378,
+    "ast_hash": "aaa697f038941511dffdb1a771595a0a",
     "semantic_hash": ""
   },
   "src/lib/ai-cache.ts": {
@@ -660,8 +660,8 @@
     "semantic_hash": ""
   },
   "src/lib/source.ts": {
-    "mtime": 1781859538.2634969,
-    "ast_hash": "aca5e570fc5ec31950d72d85bc09235e",
+    "mtime": 1781959522.9957323,
+    "ast_hash": "3a8e50e3d9a8d359d1d843058b6c9b2e",
     "semantic_hash": ""
   },
   "src/lib/spaced-repetition.ts": {
@@ -790,8 +790,8 @@
     "semantic_hash": ""
   },
   "src/components/admin/AdminShell.tsx": {
-    "mtime": 1781955783.1059313,
-    "ast_hash": "ed0c8d3052b65e384be303c96e52acbf",
+    "mtime": 1781959706.3810093,
+    "ast_hash": "5c3776885acc65b56a21d122cd55ed78",
     "semantic_hash": ""
   },
   "src/components/admin/AdminUsersClient.tsx": {
@@ -812,6 +812,31 @@
   "src/lib/sse.ts": {
     "mtime": 1781957367.9207678,
     "ast_hash": "bc80e9ac3630562ad7d02dd3130b5f8c",
+    "semantic_hash": ""
+  },
+  "src/app/(admin)/admin/questions/page.tsx": {
+    "mtime": 1781959644.4097035,
+    "ast_hash": "64f1cc6647cc9660402be2f1fc66fd0c",
+    "semantic_hash": ""
+  },
+  "src/app/api/admin/mcq/route.ts": {
+    "mtime": 1781959604.1591592,
+    "ast_hash": "3b77b9f166671d3ae4d87da5fad2ec53",
+    "semantic_hash": ""
+  },
+  "src/app/api/mcq/draw/route.ts": {
+    "mtime": 1781959578.9288795,
+    "ast_hash": "8b417567c4bab1eda6c24603745a592e",
+    "semantic_hash": ""
+  },
+  "src/components/admin/McqBankClient.tsx": {
+    "mtime": 1781959682.5555234,
+    "ast_hash": "563bae11f5a43b534903e6494e86e3c1",
+    "semantic_hash": ""
+  },
+  "src/lib/mcq.ts": {
+    "mtime": 1781959506.6208682,
+    "ast_hash": "cf5d2dfa96d3e3f1e903a91fddff83a1",
     "semantic_hash": ""
   }
 }

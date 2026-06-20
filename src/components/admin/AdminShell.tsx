@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  LayoutDashboard, Users, BarChart3, BookOpen, Megaphone,
+  LayoutDashboard, Users, BarChart3, BookOpen, Megaphone, ListChecks,
   Menu, X, ArrowUpRight, LogOut, Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,7 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle'
 const NAV = [
   { href: '/admin',               label: 'Dashboard',     Icon: LayoutDashboard, exact: true },
   { href: '/admin/users',         label: 'Users',         Icon: Users,           exact: false },
+  { href: '/admin/questions',     label: 'Questions',     Icon: ListChecks,      exact: false },
   { href: '/admin/analytics',     label: 'Analytics',     Icon: BarChart3,       exact: false },
   { href: '/admin/content',       label: 'Content',       Icon: BookOpen,        exact: false },
   { href: '/admin/announcements', label: 'Announcements', Icon: Megaphone,       exact: false },
@@ -21,6 +22,7 @@ const NAV = [
 
 function titleFor(pathname: string): string {
   if (pathname.startsWith('/admin/users')) return 'Users'
+  if (pathname.startsWith('/admin/questions')) return 'Questions'
   if (pathname.startsWith('/admin/analytics')) return 'Analytics'
   if (pathname.startsWith('/admin/content')) return 'Content'
   if (pathname.startsWith('/admin/announcements')) return 'Announcements'

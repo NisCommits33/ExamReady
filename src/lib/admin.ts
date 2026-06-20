@@ -228,6 +228,14 @@ export async function getSectionsBrief(): Promise<AdminSectionBrief[]> {
   return (data ?? []) as AdminSectionBrief[]
 }
 
+export interface AdminSubtopicBrief { id: string; topic_id: string; name: string }
+
+export async function getAllSubtopicsBrief(): Promise<AdminSubtopicBrief[]> {
+  const service = await createServiceClient()
+  const { data } = await service.from('subtopics').select('id,topic_id,name').order('sort_order')
+  return (data ?? []) as AdminSubtopicBrief[]
+}
+
 export async function getAllTopicsBrief(): Promise<AdminTopicBrief[]> {
   const service = await createServiceClient()
   const [{ data }, { data: notes }] = await Promise.all([

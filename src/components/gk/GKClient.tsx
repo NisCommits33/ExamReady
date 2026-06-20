@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { BookOpen, Layers } from 'lucide-react'
+import { BookOpen, Layers, Shuffle, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TopicDetail } from '@/components/shared/TopicDetail'
 import { StudyDashboard } from '@/components/shared/StudyDashboard'
@@ -25,6 +25,9 @@ export function GKClient({ topics: initialTopics, topicKeyPoints, heading }: Pro
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [sortBy, setSortBy] = useState<SortKey>('default')
+  const [mixedOpen, setMixedOpen] = useState(false)
+
+  const sectionId = topics.find(t => t.section_id)?.section_id ?? null
 
   const filteredTopics = useMemo(() => {
     let t = [...topics]
@@ -43,6 +46,19 @@ export function GKClient({ topics: initialTopics, topicKeyPoints, heading }: Pro
 
   const selectedTopic = topics.find(t => t.id === selectedTopicId)
 
+  if (mixedOpen && sectionId) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <button onClick={() => setMixedOpen(false)} className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mb-3 transition-colors">
+          <ArrowLeft size={14} /> Back
+        </button>
+        <h1 className="text-base font-medium text-gray-900 dark:text-gray-100 mb-1">Mixed drill</h1>
+        <p className="text-xs text-gray-400 mb-5">Questions drawn across the whole {heading ?? 'General Knowledge'} section.</p>
+        <GKDrillPanel section={{ id: sectionId, name: heading ?? 'General Knowledge' }} />
+      </div>
+    )
+  }
+
   if (selectedTopicId && selectedTopic) {
     return (
       <TopicDetail
@@ -57,9 +73,16 @@ export function GKClient({ topics: initialTopics, topicKeyPoints, heading }: Pro
 
   return (
     <div>
-      <div className="mb-5">
-        <h1 className="text-lg font-medium text-gray-900 dark:text-gray-100">{heading ?? 'General Knowledge'}</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Study &amp; practice</p>
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-medium text-gray-900 dark:text-gray-100">{heading ?? 'General Knowledge'}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Study &amp; practice</p>
+        </div>
+        {sectionId && (
+          <button onClick={() => setMixedOpen(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 border border-brand-200 dark:border-brand-800 px-3 py-1.5 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors">
+            <Shuffle size={13} /> Mixed drill
+          </button>
+        )}
       </div>
 
       <div className="flex bg-gray-100 dark:bg-[#1C2128] rounded-lg p-0.5 mb-5">

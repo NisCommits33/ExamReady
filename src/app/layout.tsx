@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
+import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -10,9 +11,10 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'ExamReady',
-  description: 'AI-powered personal exam preparation tracker',
-  manifest: '/manifest.json',
+  title: 'LOKAI',
+  description: 'AI-powered exam preparation for Lok Sewa & competitive exams',
+  applicationName: 'LOKAI',
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'LOKAI' },
 }
 
 export const viewport: Viewport = {
@@ -28,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
         </ThemeProvider>
+        <ServiceWorkerRegister />
       </body>
     </html>
   )

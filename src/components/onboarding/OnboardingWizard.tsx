@@ -6,6 +6,7 @@ import { Loader2, GraduationCap, Sparkles, BookOpen, ChevronRight, Check } from 
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { Logo } from '@/components/ui/Logo'
 
 interface CatalogExam { id: string; name: string; body: string | null; description: string | null }
 type Step = 'profile' | 'choose' | 'custom'
@@ -80,10 +81,8 @@ export function OnboardingWizard({ defaultName, catalog }: { defaultName: string
   return (
     <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-2xl p-6 shadow-sm">
       <div className="flex items-center gap-2 mb-1">
-        <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-          <span className="text-white text-xs font-bold">ER</span>
-        </div>
-        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">ExamReady</span>
+        <Logo size={32} />
+        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">LOKAI</span>
       </div>
 
       {/* Step 1: Profile */}

@@ -23,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .order('created_at', { ascending: false })
 
   return (
-    <Shell examName={active?.exam.name ?? 'ExamReady'} sections={sections} isSuperAdmin={isSuperAdmin} announcements={announcements ?? []}>
+    <Shell examName={active?.exam.name ?? 'LOKAI'} sections={sections} isSuperAdmin={isSuperAdmin} announcements={announcements ?? []}>
       {children}
     </Shell>
   )

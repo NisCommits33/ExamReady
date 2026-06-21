@@ -76,7 +76,7 @@ export function AdminShell({ name, email, children }: { name: string; email: str
         </div>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight">Admin</p>
-          <p className="text-[11px] text-gray-400 leading-tight">ExamReady console</p>
+          <p className="text-[11px] text-gray-400 leading-tight">LOKAI console</p>
         </div>
       </div>
 

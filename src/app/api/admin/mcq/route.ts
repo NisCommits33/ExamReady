@@ -55,6 +55,20 @@ export async function POST(req: Request) {
         if (error) throw error
         return NextResponse.json({ ok: true })
       }
+      case 'deleteMany': {
+        const { ids } = body
+        if (!Array.isArray(ids) || ids.length === 0) return NextResponse.json({ error: 'No questions selected' }, { status: 400 })
+        const { error } = await service.from('mcq_questions').delete().in('id', ids)
+        if (error) throw error
+        return NextResponse.json({ ok: true, deleted: ids.length })
+      }
+      case 'deleteAll': {
+        const { topicId } = body
+        if (!topicId) return NextResponse.json({ error: 'Missing topicId' }, { status: 400 })
+        const { error } = await service.from('mcq_questions').delete().eq('topic_id', topicId)
+        if (error) throw error
+        return NextResponse.json({ ok: true })
+      }
       default:
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
     }

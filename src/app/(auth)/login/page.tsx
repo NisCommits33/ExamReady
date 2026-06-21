@@ -1,4 +1,5 @@
 import { LoginForm } from '@/components/auth/LoginForm'
+import { Logo } from '@/components/ui/Logo'
 
 export default function LoginPage({
   searchParams,
@@ -9,11 +10,9 @@ export default function LoginPage({
     <div className="min-h-dvh flex flex-col items-center justify-center bg-gray-100 px-4">
       {/* Logo */}
       <div className="flex items-center gap-3 mb-8">
-        <div className="w-11 h-11 rounded-xl bg-brand-600 flex items-center justify-center shadow-sm">
-          <span className="text-white text-base font-bold tracking-tight">ER</span>
-        </div>
+        <Logo size={44} />
         <div>
-          <p className="text-lg font-semibold text-gray-900 leading-tight">ExamReady</p>
+          <p className="text-lg font-semibold text-gray-900 leading-tight">LOKAI</p>
           <p className="text-xs text-gray-400 leading-tight">Smart exam prep, powered by AI</p>
         </div>
       </div>

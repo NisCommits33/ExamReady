@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { ExamCountdown } from '@/components/shared/ExamCountdown'
+import { Logo } from '@/components/ui/Logo'
 import type { NavSection } from './Shell'
 
 const KIND_ICON: Record<string, typeof Home> = { mcq_study: Globe, aptitude: Brain, written: Flame }
@@ -19,7 +20,7 @@ interface SidebarProps {
   isSuperAdmin?: boolean
 }
 
-export function Sidebar({ onLogSession, examName = 'ExamReady', sections = [], isSuperAdmin = false }: SidebarProps) {
+export function Sidebar({ onLogSession, examName = 'LOKAI', sections = [], isSuperAdmin = false }: SidebarProps) {
   const sectionNav = sections.map(s => ({ href: `/s/${s.id}`, label: s.name, Icon: KIND_ICON[s.kind] ?? BookOpen }))
   // Super admins are not students — they only get the Admin view.
   const NAV = isSuperAdmin
@@ -47,11 +48,9 @@ export function Sidebar({ onLogSession, examName = 'ExamReady', sections = [], i
       {/* Logo + theme toggle */}
       <div className="px-5 py-4 border-b border-gray-100 dark:border-[#30363D] flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-xs font-bold">ER</span>
-          </div>
+          <Logo size={32} />
           <div>
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight">ExamReady</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight">LOKAI</p>
             <p className="text-[11px] text-gray-400 leading-tight truncate max-w-[140px]">{examName}</p>
           </div>
         </div>

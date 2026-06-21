@@ -4,7 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ── ExamReady Design Tokens ───────────────────────────────────────────── */
+/* ── LOKAI Design Tokens ───────────────────────────────────────────────── */
 :root {
   /* Brand blue */
   --brand-50:  #E6F1FB;
@@ -45,7 +45,7 @@
   --gray-600: #4B5563;
   --gray-900: #111827;
 
-  /* shadcn overrides — map to ExamReady palette */
+  /* shadcn overrides — map to LOKAI palette */
   --background: #F3F4F6;
   --foreground: #111827;
   --card: #FFFFFF;

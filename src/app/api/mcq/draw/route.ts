@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import type { DrillQuestion } from '@/lib/mcq'
+import { shuffleQuestion, type DrillQuestion } from '@/lib/mcq'
 
 export async function POST(req: Request) {
   // Any signed-in user may draw practice questions.
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
 
   const questions: DrillQuestion[] = (rows ?? [])
     .sort(() => Math.random() - 0.5)
-    .map(r => ({
+    .map(r => shuffleQuestion({
       question: r.question,
       options: (r.options ?? {}) as Record<string, string>,
       correct: r.correct,

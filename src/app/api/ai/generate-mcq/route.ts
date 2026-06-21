@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import { getExamPromptContext } from '@/lib/exam'
 import { getMcqGrounding, sourceGroundingBlock, type GroundingMode } from '@/lib/source'
+import { shuffleQuestion } from '@/lib/mcq'
 
 const MODES: GroundingMode[] = ['source', 'note', 'general']
 
@@ -56,8 +57,9 @@ Return JSON:
         content: source ? `${baseUserContent}\n\n${sourceGroundingBlock(source)}` : baseUserContent,
       },
     ], ctx, { temperature: 0.9 })
-    logActivity('generate_mcq', topicId ?? null, { topic: topicName, difficulty: diff, count: data.questions?.length, grounding: mode })
-    return NextResponse.json(data, { headers: { 'X-AI-Tokens': String(ctx.tokens ?? 0) } })
+    const questions = (data.questions ?? []).map(q => shuffleQuestion(q as { question: string; options: Record<string, string>; correct: string; explanation?: string; trap?: string }))
+    logActivity('generate_mcq', topicId ?? null, { topic: topicName, difficulty: diff, count: questions.length, grounding: mode })
+    return NextResponse.json({ questions }, { headers: { 'X-AI-Tokens': String(ctx.tokens ?? 0) } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 })
   }

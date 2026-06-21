@@ -1,15 +1,11 @@
-// LOKAI service worker — conservative offline support.
-// Network-first for navigations (fresh content online, /offline fallback when down);
-// cache-first for static assets. Never touches /api/* or /auth/*.
-const CACHE = 'lokai-v1'
-const OFFLINE_URL = '/offline'
-const PRECACHE = [OFFLINE_URL, '/icon-192.png', '/icon-512.png']
+// LOKAI service worker — static-asset caching only.
+// IMPORTANT: do NOT intercept page navigations. This app issues server redirects
+// (/ -> /login or /admin); returning a redirected response for a navigation throws
+// in Chrome ("No content available / was redirected"). So navigations go straight
+// to the network and the browser handles redirects natively.
+const CACHE = 'lokai-v2'
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()),
-  )
-})
+self.addEventListener('install', () => self.skipWaiting())
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
@@ -22,18 +18,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
+  if (request.mode === 'navigate') return // let the browser handle pages + redirects
 
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) return
-
-  // Page navigations: network-first, fall back to the offline shell.
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(() => caches.match(OFFLINE_URL).then((r) => r || Response.error())),
-    )
-    return
-  }
 
   // Static assets: cache-first, then network (and cache the result).
   if (url.pathname.startsWith('/_next/static/') || /\.(png|svg|ico|woff2?|css|js)$/.test(url.pathname)) {
@@ -41,8 +30,10 @@ self.addEventListener('fetch', (event) => {
       caches.match(request).then((cached) =>
         cached ||
         fetch(request).then((resp) => {
-          const copy = resp.clone()
-          caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {})
+          if (resp.ok && !resp.redirected) {
+            const copy = resp.clone()
+            caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {})
+          }
           return resp
         }).catch(() => cached),
       ),

@@ -1,5 +1,6 @@
 import { LoginForm } from '@/components/auth/LoginForm'
 import { Logo } from '@/components/ui/Logo'
+import { InstallPrompt } from '@/components/pwa/InstallPrompt'
 
 export default function LoginPage({
   searchParams,
@@ -26,6 +27,9 @@ export default function LoginPage({
 
         <LoginForm />
       </div>
+
+      {/* Install app (shows only when installable / on iOS Safari) */}
+      <InstallPrompt className="mt-5 w-full max-w-sm" />
 
       {/* Footer */}
       <p className="mt-6 text-xs text-gray-400 text-center">

@@ -14,6 +14,7 @@ export const metadata: Metadata = {
   title: 'LOKAI',
   description: 'AI-powered exam preparation for Lok Sewa & competitive exams',
   applicationName: 'LOKAI',
+  manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'LOKAI' },
 }
 

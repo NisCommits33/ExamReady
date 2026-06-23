@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Plus, Trash2, ChevronDown, FileText } from 'lucide-react'
+import { Loader2, Plus, Trash2, ChevronDown, FileText, Layers, ListChecks } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { TopicSourceEditor } from '@/components/admin/TopicSourceEditor'
+import { SubtopicManager } from '@/components/admin/SubtopicManager'
+import { TopicMcqManager } from '@/components/admin/TopicMcqManager'
 import { useConfirm, type ConfirmOptions } from '@/components/ui/ConfirmDialog'
 import type { AdminExam, AdminShiftType, AdminTopicBrief, AdminSectionBrief } from '@/lib/admin'
 
@@ -22,7 +24,9 @@ export function AdminContentClient({ exams, shiftTypes, topics, sections }: { ex
   const [busy, setBusy] = useState<string | null>(null)
   const [openExam, setOpenExam] = useState<string | null>(null)
   const [sourceTopic, setSourceTopic] = useState<string | null>(null)
-  const [newTopic, setNewTopic] = useState({ name: '', number: '', paper: 2, section: 'B', sectionId: '' })
+  const [subTopic, setSubTopic] = useState<string | null>(null)
+  const [mcqTopic, setMcqTopic] = useState<string | null>(null)
+  const [newTopic, setNewTopic] = useState({ name: '', number: '', paper: 2, section: 'B', sectionId: '', subtopics: '' })
 
   async function run(key: string, body: Record<string, unknown>, ok: string, confirmOpts?: ConfirmOptions) {
     if (confirmOpts && !(await confirm(confirmOpts))) return false
@@ -78,7 +82,21 @@ export function AdminContentClient({ exams, shiftTypes, topics, sections }: { ex
                         <div className="flex items-center gap-2 text-xs">
                           <span className="flex-1 text-gray-700 dark:text-gray-300 truncate">{t.topic_number}. {t.name} <span className="text-gray-400">P{t.paper}{t.section}</span></span>
                           <button
-                            onClick={() => setSourceTopic(sourceTopic === t.id ? null : t.id)}
+                            onClick={() => { setSubTopic(subTopic === t.id ? null : t.id); setSourceTopic(null); setMcqTopic(null) }}
+                            title="Manage subtopics"
+                            className={cn('inline-flex items-center px-1.5 py-1 rounded-md transition-colors', subTopic === t.id ? 'text-brand-600 bg-brand-50 dark:bg-brand-900/20' : 'text-gray-300 hover:text-brand-600')}
+                          >
+                            <Layers size={13} />
+                          </button>
+                          <button
+                            onClick={() => { setMcqTopic(mcqTopic === t.id ? null : t.id); setSubTopic(null); setSourceTopic(null) }}
+                            title="Manage MCQ questions"
+                            className={cn('inline-flex items-center px-1.5 py-1 rounded-md transition-colors', mcqTopic === t.id ? 'text-brand-600 bg-brand-50 dark:bg-brand-900/20' : 'text-gray-300 hover:text-brand-600')}
+                          >
+                            <ListChecks size={13} />
+                          </button>
+                          <button
+                            onClick={() => { setSourceTopic(sourceTopic === t.id ? null : t.id); setSubTopic(null); setMcqTopic(null) }}
                             title={t.hasSource ? 'Edit official source' : 'Add official source'}
                             className={cn('inline-flex items-center gap-1 px-1.5 py-1 rounded-md transition-colors', t.hasSource ? 'text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20' : 'text-gray-300 hover:text-brand-600')}
                           >
@@ -86,6 +104,8 @@ export function AdminContentClient({ exams, shiftTypes, topics, sections }: { ex
                           </button>
                           <button onClick={() => run('del-' + t.id, { action: 'deleteTopic', topicId: t.id }, 'Topic deleted', { title: 'Delete topic?', message: `"${t.topic_number}. ${t.name}" and its notes/subtopics will be permanently removed.`, confirmLabel: 'Delete', danger: true })} disabled={busy !== null} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button>
                         </div>
+                        {subTopic === t.id && <SubtopicManager topicId={t.id} topicName={t.name} />}
+                        {mcqTopic === t.id && <TopicMcqManager topicId={t.id} topicName={t.name} />}
                         {sourceTopic === t.id && <TopicSourceEditor topicId={t.id} onClose={() => setSourceTopic(null)} />}
                       </div>
                     ))}
@@ -100,13 +120,20 @@ export function AdminContentClient({ exams, shiftTypes, topics, sections }: { ex
                       <select value={newTopic.paper} onChange={ev => setNewTopic(v => ({ ...v, paper: Number(ev.target.value) }))} className="text-xs border border-gray-200 dark:border-[#30363D] dark:bg-[#1C2128] rounded-md px-1 py-1.5"><option value={1}>P1</option><option value={2}>P2</option></select>
                       <select value={newTopic.section} onChange={ev => setNewTopic(v => ({ ...v, section: ev.target.value }))} className="text-xs border border-gray-200 dark:border-[#30363D] dark:bg-[#1C2128] rounded-md px-1 py-1.5"><option value="A">A</option><option value="B">B</option></select>
                       <button
-                        onClick={async () => { if (await run('add-' + e.id, { action: 'addTopic', examId: e.id, name: newTopic.name, topic_number: newTopic.number, paper: newTopic.paper, section: newTopic.section, sectionId: newTopic.sectionId }, 'Topic added')) setNewTopic({ name: '', number: '', paper: 2, section: 'B', sectionId: '' }) }}
+                        onClick={async () => { if (await run('add-' + e.id, { action: 'addTopic', examId: e.id, name: newTopic.name, topic_number: newTopic.number, paper: newTopic.paper, section: newTopic.section, sectionId: newTopic.sectionId, subtopics: newTopic.subtopics }, 'Topic added')) setNewTopic({ name: '', number: '', paper: 2, section: 'B', sectionId: '', subtopics: '' }) }}
                         disabled={busy !== null || !newTopic.name.trim() || !newTopic.number.trim() || !newTopic.sectionId}
                         className="inline-flex items-center gap-1 text-xs font-medium text-white bg-brand-600 px-2 py-1.5 rounded-md hover:bg-brand-800 disabled:opacity-40"
                       >
                         <Plus size={12} /> Add
                       </button>
                     </div>
+                    <textarea
+                      value={newTopic.subtopics}
+                      onChange={ev => setNewTopic(v => ({ ...v, subtopics: ev.target.value }))}
+                      rows={2}
+                      placeholder="Optional subtopics — one per line"
+                      className="mt-1.5 w-full text-xs border border-gray-200 dark:border-[#30363D] dark:bg-[#1C2128] rounded-md px-2 py-1.5 resize-y focus:outline-none"
+                    />
                   </div>
                 )}
               </div>

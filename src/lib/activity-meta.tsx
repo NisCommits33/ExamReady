@@ -24,6 +24,7 @@ export const ACTION_META: Record<string, ActionMeta> = {
   extract_source:         { label: 'Uploaded a source',            Icon: Upload,        color: 'text-brand-500' },
   extract_numbers:        { label: 'Extracted key numbers',        Icon: Hash,          color: 'text-teal-500' },
   scaffold_exam:          { label: 'Scaffolded an exam',           Icon: BookOpen,      color: 'text-brand-500' },
+  suggest_subtopics:      { label: 'Suggested subtopics',          Icon: Sparkles,      color: 'text-brand-500' },
   refresh_current_affairs:{ label: 'Refreshed current affairs',    Icon: Globe,         color: 'text-teal-500' },
 }
 

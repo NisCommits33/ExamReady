@@ -100,8 +100,8 @@
     "semantic_hash": ""
   },
   "src/app/api/admin/content/route.ts": {
-    "mtime": 1781954975.1983838,
-    "ast_hash": "3c39bcd08080e8f4148eef021fa9a559",
+    "mtime": 1782115575.3128932,
+    "ast_hash": "fe3637767bb9e31bb81dfef0e5488709",
     "semantic_hash": ""
   },
   "src/app/api/admin/users/route.ts": {
@@ -190,8 +190,8 @@
     "semantic_hash": ""
   },
   "src/app/api/ai/scaffold-exam/route.ts": {
-    "mtime": 1781935669.7024062,
-    "ast_hash": "9bb184d013e7d36945f418fd1a2e4e9c",
+    "mtime": 1782115552.8592954,
+    "ast_hash": "a171715d1942ee505e5fc1c0ec2776c2",
     "semantic_hash": ""
   },
   "src/app/api/ai/simplify/route.ts": {
@@ -225,8 +225,8 @@
     "semantic_hash": ""
   },
   "src/components/admin/AdminContentClient.tsx": {
-    "mtime": 1781955034.7665787,
-    "ast_hash": "88a289fa5e04c545d77873871bfe69f8",
+    "mtime": 1782127874.2088711,
+    "ast_hash": "9a5a7945afaaf7681d972479bf4d259f",
     "semantic_hash": ""
   },
   "src/components/admin/AdminUserActions.tsx": {
@@ -330,8 +330,8 @@
     "semantic_hash": ""
   },
   "src/components/gk/GKDrillPanel.tsx": {
-    "mtime": 1781959825.7299104,
-    "ast_hash": "183bcde224f0a0a6722035515969bf70",
+    "mtime": 1782115621.3977158,
+    "ast_hash": "fccc1d6db06d1380a16f6aafaa9c9f41",
     "semantic_hash": ""
   },
   "src/components/iq/IQClient.tsx": {
@@ -610,8 +610,8 @@
     "semantic_hash": ""
   },
   "src/lib/activity-meta.tsx": {
-    "mtime": 1781876662.2961378,
-    "ast_hash": "e924654e60c87d01572f5d20587b043d",
+    "mtime": 1782115418.1663463,
+    "ast_hash": "5f053a16984a51748447d199f39d7231",
     "semantic_hash": ""
   },
   "src/lib/activity.ts": {
@@ -760,7 +760,7 @@
     "semantic_hash": ""
   },
   "src/app/(admin)/admin/content/page.tsx": {
-    "mtime": 1781956094.0563726,
+    "mtime": 1782118671.931742,
     "ast_hash": "7279f91a31bf829b8c5db84ea8564004",
     "semantic_hash": ""
   },
@@ -820,8 +820,8 @@
     "semantic_hash": ""
   },
   "src/app/api/admin/mcq/route.ts": {
-    "mtime": 1781975202.3594503,
-    "ast_hash": "9b7557e097b1756a698f40950778882a",
+    "mtime": 1782118951.24174,
+    "ast_hash": "84a0e931b26d16f2aa3b039c6d5b3aff",
     "semantic_hash": ""
   },
   "src/app/api/mcq/draw/route.ts": {
@@ -902,6 +902,46 @@
   "src/components/pwa/InstallPrompt.tsx": {
     "mtime": 1782059039.1443715,
     "ast_hash": "bca24bdfe15622ecec163b40897ba5f7",
+    "semantic_hash": ""
+  },
+  "src/app/(admin)/loading.tsx": {
+    "mtime": 1782113106.7301795,
+    "ast_hash": "bcfe7f0a04f4f96722e6ce4dd0a76987",
+    "semantic_hash": ""
+  },
+  "src/app/(app)/loading.tsx": {
+    "mtime": 1782113081.5274081,
+    "ast_hash": "5d2bf609cf67be781c18ab6251258b4f",
+    "semantic_hash": ""
+  },
+  "src/app/(app)/topics/[id]/loading.tsx": {
+    "mtime": 1782113088.009171,
+    "ast_hash": "ad188afa5b00076bedfea958644178c7",
+    "semantic_hash": ""
+  },
+  "src/components/ui/skeletons.tsx": {
+    "mtime": 1782113061.8808465,
+    "ast_hash": "df516787aa831c47c05990196d701118",
+    "semantic_hash": ""
+  },
+  "src/app/api/admin/subtopics/route.ts": {
+    "mtime": 1782117165.545933,
+    "ast_hash": "4b359b31858aedc34f0b3a36a08a79d3",
+    "semantic_hash": ""
+  },
+  "src/app/api/ai/suggest-subtopics/route.ts": {
+    "mtime": 1782115386.9112103,
+    "ast_hash": "855b24bdc77026e9cf8516b5cc9da657",
+    "semantic_hash": ""
+  },
+  "src/components/admin/SubtopicManager.tsx": {
+    "mtime": 1782117195.9154325,
+    "ast_hash": "f673e4b80fc1d907548baff4d324c4b9",
+    "semantic_hash": ""
+  },
+  "src/components/admin/TopicMcqManager.tsx": {
+    "mtime": 1782127855.3386753,
+    "ast_hash": "9adb682b9fb68e4eefc86992cbdc2c60",
     "semantic_hash": ""
   }
 }

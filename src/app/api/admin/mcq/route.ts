@@ -48,6 +48,30 @@ export async function POST(req: Request) {
         if (error) throw error
         return NextResponse.json({ ok: true, imported: rows.length, skipped: errors.length, errors })
       }
+      case 'insertMany': {
+        const { topicId, subtopicId, questions, difficulty } = body
+        if (!topicId) return NextResponse.json({ error: 'Missing topicId' }, { status: 400 })
+        if (!Array.isArray(questions) || questions.length === 0) return NextResponse.json({ error: 'No questions' }, { status: 400 })
+        const { data: topic } = await service.from('topics').select('exam_id,section_id').eq('id', topicId).maybeSingle()
+        const fallbackDiff = ['easy', 'medium', 'hard'].includes(difficulty) ? difficulty : 'medium'
+        const rows = []
+        for (const q of questions as Record<string, unknown>[]) {
+          const opt = (q.options ?? {}) as Record<string, unknown>
+          const options = { A: String(opt.A ?? '').trim(), B: String(opt.B ?? '').trim(), C: String(opt.C ?? '').trim(), D: String(opt.D ?? '').trim() }
+          const correct = String(q.correct ?? '').trim().toUpperCase()
+          const question = String(q.question ?? '').trim()
+          if (!question || !options.A || !options.B || !options.C || !options.D || !['A', 'B', 'C', 'D'].includes(correct)) continue
+          const diff = ['easy', 'medium', 'hard'].includes(String(q.difficulty)) ? String(q.difficulty) : fallbackDiff
+          rows.push({
+            exam_id: topic?.exam_id ?? null, section_id: topic?.section_id ?? null, topic_id: topicId, subtopic_id: subtopicId ?? null,
+            question, options, correct, explanation: String(q.explanation ?? '').trim() || null, difficulty: diff, source: 'ai',
+          })
+        }
+        if (rows.length === 0) return NextResponse.json({ error: 'No valid questions to save' }, { status: 400 })
+        const { error } = await service.from('mcq_questions').insert(rows)
+        if (error) throw error
+        return NextResponse.json({ ok: true, inserted: rows.length })
+      }
       case 'delete': {
         const { id } = body
         if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })

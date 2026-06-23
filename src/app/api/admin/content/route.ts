@@ -30,14 +30,18 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true })
       }
       case 'addTopic': {
-        const { examId, name, paper, section, topic_number, sectionId } = body
+        const { examId, name, paper, section, topic_number, sectionId, subtopics } = body
         if (!examId || !name?.trim() || !topic_number?.trim()) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
         if (!sectionId) return NextResponse.json({ error: 'Pick a section so the topic is visible to users' }, { status: 400 })
-        const { error } = await service.from('topics').insert({
+        const subNames = String(subtopics ?? '').split('\n').map(s => s.trim().replace(/^[-*\d.)\s]+/, '').trim()).filter(Boolean)
+        const { data: topic, error } = await service.from('topics').insert({
           exam_id: examId, section_id: sectionId, name: name.trim(), paper: paper ?? 2, section: section ?? 'B',
-          topic_number: String(topic_number).trim(), subsections: [], ai_priority: 5,
-        })
+          topic_number: String(topic_number).trim(), subsections: subNames, ai_priority: 5,
+        }).select('id').single()
         if (error) throw error
+        if (topic && subNames.length) {
+          await service.from('subtopics').insert(subNames.map((n, i) => ({ topic_id: topic.id, name: n, sort_order: i })))
+        }
         return NextResponse.json({ ok: true })
       }
       case 'deleteTopic': {

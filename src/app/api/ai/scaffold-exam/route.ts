@@ -59,18 +59,32 @@ Rules:
 
       const topics = (sec.topics ?? []).slice(0, 15)
       if (topics.length) {
-        const rows = topics.map(t => ({
+        const rows = topics.map((t, j) => ({
           exam_id: examId,
           section_id: insertedSection.id,
           name: t.name,
           paper: 1,
           section: 'A',
-          topic_number: t.topic_number ?? String(topicCount + 1),
+          topic_number: t.topic_number ?? String(topicCount + j + 1),
           subsections: t.subsections ?? [],
           ai_priority: 5,
         }))
-        const { error } = await supabase.from('topics').insert(rows)
-        if (!error) topicCount += rows.length
+        const { data: inserted, error } = await supabase.from('topics').insert(rows).select('id,topic_number')
+        if (!error && inserted) {
+          topicCount += inserted.length
+          // Seed subtopic rows from each topic's subsections (subtopics table is the source of truth).
+          const idByNum = new Map(inserted.map(r => [r.topic_number, r.id]))
+          const subRows: { topic_id: string; name: string; sort_order: number }[] = []
+          for (const r of rows) {
+            const tid = idByNum.get(r.topic_number)
+            if (!tid) continue
+            r.subsections.forEach((nm: string, k: number) => {
+              const name = String(nm ?? '').trim()
+              if (name) subRows.push({ topic_id: tid, name, sort_order: k })
+            })
+          }
+          if (subRows.length) await supabase.from('subtopics').insert(subRows)
+        }
       }
     }
 

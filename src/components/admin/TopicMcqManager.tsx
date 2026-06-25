@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { notifyTokens, tokensFromRes } from '@/lib/notify-tokens'
 import { parseMcqInput, CSV_TEMPLATE, JSON_TEMPLATE } from '@/lib/mcq'
+import { OPENROUTER_MODELS } from '@/lib/openrouter-models'
 
 interface BankRow { id: string; question: string; correct: string; difficulty: string; subtopic_id: string | null }
 interface SubRef { id: string; name: string }
@@ -30,6 +31,8 @@ export function TopicMcqManager({ topicId, topicName }: { topicId: string; topic
   // AI generation
   const [genCount, setGenCount] = useState(5)
   const [genDiff, setGenDiff] = useState<typeof DIFFS[number]>('mixed')
+  const [provider, setProvider] = useState<'groq' | 'openrouter'>('groq')
+  const [orModel, setOrModel] = useState(OPENROUTER_MODELS[0]?.id ?? '')
   const [generating, setGenerating] = useState(false)
   const [genQs, setGenQs] = useState<GenQ[] | null>(null)
   const [genPick, setGenPick] = useState<Set<number>>(new Set())
@@ -77,10 +80,12 @@ export function TopicMcqManager({ topicId, topicName }: { topicId: string; topic
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         topicName: sub ? `${topicName} — ${sub.name}` : topicName,
+        subtopicName: sub?.name,
         subsections: sub ? [sub.name] : [],
-        difficulty: genDiff, count: genCount,
+        difficulty: genDiff, count: genCount, provider,
         topicId, subtopicId: subtopicId || undefined,
-        grounding: 'source', // generate strictly from the uploaded source material
+        grounding: 'source',
+        openrouterModel: provider === 'openrouter' ? orModel : undefined,
       }),
     })
     const json = await res.json().catch(() => ({}))
@@ -164,6 +169,16 @@ export function TopicMcqManager({ topicId, topicName }: { topicId: string; topic
           <select value={genDiff} onChange={e => setGenDiff(e.target.value as typeof DIFFS[number])} className="text-[11px] border border-gray-200 dark:border-[#30363D] dark:bg-[#1C2128] rounded px-1.5 py-1 focus:outline-none capitalize">
             {DIFFS.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
+          <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-[#1C2128] rounded p-0.5">
+            {(['groq', 'openrouter'] as const).map(p => (
+              <button key={p} onClick={() => setProvider(p)} className={cn('px-2 py-0.5 text-[10px] font-medium rounded', provider === p ? 'bg-white dark:bg-[#161B22] text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500')}>{p === 'groq' ? 'Groq' : 'OpenRouter'}</button>
+            ))}
+          </div>
+          {provider === 'openrouter' && (
+            <select value={orModel} onChange={e => setOrModel(e.target.value)} className="text-[11px] border border-gray-200 dark:border-[#30363D] dark:bg-[#1C2128] rounded px-1.5 py-1 focus:outline-none max-w-[160px]">
+              {OPENROUTER_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </select>
+          )}
           <button onClick={generate} disabled={generating} className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 border border-brand-200 dark:border-brand-800 px-2 py-1 rounded-md hover:bg-brand-50 dark:hover:bg-brand-900/20 disabled:opacity-40">
             {generating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} Generate from source
           </button>

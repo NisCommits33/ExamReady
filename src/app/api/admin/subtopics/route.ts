@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { assertSuperAdmin } from '@/lib/admin'
 import { createServiceClient } from '@/lib/supabase/server'
+import { splitSourceSections } from '@/lib/markdown'
 
 function cleanNames(input: unknown): string[] {
   const arr = Array.isArray(input) ? input : String(input ?? '').split('\n')
@@ -40,6 +41,28 @@ export async function POST(req: Request) {
         const { error } = await service.from('subtopics').insert({ topic_id: topicId, name: String(name).trim(), sort_order: await nextSort(topicId), is_dynamic: !!isDynamic })
         if (error) throw error
         return NextResponse.json({ ok: true })
+      }
+      case 'splitFromSource': {
+        const { topicId, replace } = body
+        if (!topicId) return NextResponse.json({ error: 'Missing topicId' }, { status: 400 })
+        const { data: notes } = await service.from('topic_notes').select('official_source,official_source_2').eq('topic_id', topicId).maybeSingle()
+        const src = [notes?.official_source_2, notes?.official_source].map(s => s?.trim()).filter(Boolean).join('\n\n')
+        if (!src) return NextResponse.json({ error: 'This topic has no uploaded source to split' }, { status: 400 })
+        const sections = splitSourceSections(src)
+        if (sections.length === 0) return NextResponse.json({ error: 'No headings found in the source' }, { status: 400 })
+
+        if (replace) await service.from('subtopics').delete().eq('topic_id', topicId)
+        const { data: existing } = await service.from('subtopics').select('name').eq('topic_id', topicId)
+        const have = new Set((existing ?? []).map(r => r.name.toLowerCase()))
+        const fresh = sections.filter(s => !have.has(s.name.toLowerCase()))
+        if (fresh.length === 0) return NextResponse.json({ ok: true, created: 0, skipped: sections.length })
+
+        const start = await nextSort(topicId)
+        const { error } = await service.from('subtopics').insert(
+          fresh.map((s, i) => ({ topic_id: topicId, name: s.name, official_source: s.content, sort_order: start + i })),
+        )
+        if (error) throw error
+        return NextResponse.json({ ok: true, created: fresh.length, skipped: sections.length - fresh.length })
       }
       case 'addMany': {
         const { topicId, names } = body

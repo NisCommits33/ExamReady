@@ -16,6 +16,8 @@ import { isTextFile, readSourceFile } from '@/lib/source-file'
 import { readStream } from '@/lib/sse'
 import { notifyTokens } from '@/lib/notify-tokens'
 import { SimplifiableContent } from '@/components/shared/SimplifiableContent'
+import { ScrollToTop } from '@/components/shared/ScrollToTop'
+import { SourceMeta } from '@/components/shared/SourceMeta'
 import type { Topic, TopicNote, UserAnnotation, TopicStatus } from '@/types/database'
 
 type Tab = 'source' | 'your_source' | 'note' | 'keypoints' | 'tips'
@@ -205,6 +207,9 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
               )}
             >
               {t.label}
+              {t.key === 'your_source' && note?.official_source_2 && (
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400" title="You added your own source" />
+              )}
               {isLoadingTab && (
                 <span className="w-3 h-3 border border-gray-300 border-t-brand-400 rounded-full animate-spin" />
               )}
@@ -223,6 +228,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
               <span className="text-xs text-brand-700 dark:text-brand-300">This is the original source material for this topic</span>
             </div>
             <Markdown>{note.official_source}</Markdown>
+            <SourceMeta note={note} />
           </div>
         )}
 
@@ -430,6 +436,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
           </div>
         </div>
       )}
+      <ScrollToTop />
       <ChatPanel
         open={chatOpen}
         onClose={() => setChatOpen(false)}

@@ -97,12 +97,15 @@ export function ARFFClient({ p2Topics, p2Answers, topicKeyPoints, heading }: Pro
               const ts = (scoresByTopic.get(t.id) ?? []).slice(-5)
               const recent = p2Answers.find(a => a.topic_id === t.id)
               return (
-                <button key={t.id} onClick={() => setSelectedTopicId(t.id)} className="w-full flex items-center justify-between px-4 py-3.5 bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl text-left hover:border-teal-400 dark:hover:border-teal-700 transition-all duration-150">
+                <button key={t.id} onClick={() => setSelectedTopicId(t.id)} className={cn('w-full flex items-center justify-between px-4 py-3.5 bg-white dark:bg-[#161B22] border rounded-xl text-left transition-all duration-150', t.has_user_source ? 'border-violet-300 dark:border-violet-700 border-l-[3px] border-l-violet-400 dark:border-l-violet-500 hover:border-violet-400' : 'border-gray-200 dark:border-[#30363D] hover:border-teal-400 dark:hover:border-teal-700')}>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{t.name}</p>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">§{t.section} · Topic {t.topic_number}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                    {t.has_user_source && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300" title="You added your own source">Your source</span>
+                    )}
                     <ScoreSparkline scores={ts} />
                     <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full', t.status === 'done' ? 'bg-success-50 text-success-800' : t.status === 'in_progress' ? 'bg-warning-50 text-warning-800' : 'bg-gray-100 text-gray-500')}>
                       {t.status === 'done' ? 'Done' : t.status === 'in_progress' ? 'In progress' : 'Not started'}

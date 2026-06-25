@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export type Provider = 'groq' | 'gemini'
+export type Provider = 'groq' | 'gemini' | 'openrouter'
 /** `tokens` is written back by the AI helpers so the route can report it to the client. */
 export interface UsageCtx { action: string; tokens?: number }
 export interface TokenUsage { prompt: number; completion: number; total: number }

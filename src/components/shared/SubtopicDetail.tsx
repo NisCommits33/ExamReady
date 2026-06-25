@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/ui/Markdown'
 import { SimplifiableContent } from '@/components/shared/SimplifiableContent'
+import { ScrollToTop } from '@/components/shared/ScrollToTop'
 import { LoadingStream, StreamingSkeleton } from '@/components/shared/LoadingStream'
 import { Flashcards } from '@/components/shared/Flashcards'
 import { GKDrillPanel } from '@/components/gk/GKDrillPanel'
@@ -159,6 +160,7 @@ export function SubtopicDetail({ topic, subtopic, onBack }: { topic: Topic; subt
           ? <Flashcards topics={[topic]} topicKeyPoints={[{ topic_id: topic.id, key_points: note.key_points }]} />
           : <div className="py-12 text-center"><p className="text-sm text-gray-400 mb-1">No flashcards yet</p><p className="text-xs text-gray-400">Generate the study note first</p></div>
       )}
+      <ScrollToTop />
     </div>
   )
 }

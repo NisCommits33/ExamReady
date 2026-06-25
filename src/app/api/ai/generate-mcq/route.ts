@@ -5,13 +5,14 @@ import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import { getExamPromptContext } from '@/lib/exam'
 import { getMcqGrounding, sourceGroundingBlock, type GroundingMode } from '@/lib/source'
+import { openrouterJSON } from '@/lib/openrouter'
 import { shuffleQuestion } from '@/lib/mcq'
 
 const MODES: GroundingMode[] = ['source', 'note', 'general']
 
 export async function POST(req: Request) {
   const blocked = await quotaGuard(); if (blocked) return blocked
-  const { topicName, subsections, difficulty, topicId, subtopicId, count, grounding } = await req.json()
+  const { topicName, subsections, difficulty, topicId, subtopicId, subtopicName, count, grounding, provider, openrouterModel } = await req.json()
   const examCtx = await getExamPromptContext()
 
   const n = Math.min(30, Math.max(1, Number(count) || 5))
@@ -49,16 +50,20 @@ Return JSON:
     const seed = Math.random().toString(36).slice(2, 8)
     const variation = `\n\nVariation seed: ${seed}. Produce a FRESH, DIFFERENT set of questions from any previous run — vary the angles, wording, and which facts you test. Avoid the most obvious textbook examples.`
     const baseUserContent = `Generate ${n} MCQs for: "${topicName}"\nSubsections: ${(subsections ?? []).join(', ')}\nDifficulty: ${diff}${variation}`
+    // Hard focus on the chosen subtopic — placed last so it outweighs the broader source.
+    const focus = subtopicName
+      ? `\n\nFOCUS — STRICT: Every single question MUST be specifically about the subtopic "${subtopicName}" (one part of "${topicName}"). Do NOT write questions about other parts of the topic. If SOURCE MATERIAL above is broad, use ONLY the portions relevant to "${subtopicName}".`
+      : ''
     const ctx = { action: 'generate_mcq', tokens: 0 }
-    const data = await groqJSON<{ questions: unknown[] }>([
-      { role: 'system', content: system },
-      {
-        role: 'user',
-        content: source ? `${baseUserContent}\n\n${sourceGroundingBlock(source)}` : baseUserContent,
-      },
-    ], ctx, { temperature: 0.9 })
+    const messages = [
+      { role: 'system' as const, content: system },
+      { role: 'user' as const, content: `${baseUserContent}${source ? `\n\n${sourceGroundingBlock(source)}` : ''}${focus}` },
+    ]
+    const data = provider === 'openrouter'
+      ? await openrouterJSON<{ questions: unknown[] }>(messages, ctx, { temperature: 0.8, model: openrouterModel || undefined })
+      : await groqJSON<{ questions: unknown[] }>(messages, ctx, { temperature: 0.9 })
     const questions = (data.questions ?? []).map(q => shuffleQuestion(q as { question: string; options: Record<string, string>; correct: string; explanation?: string; trap?: string }))
-    logActivity('generate_mcq', topicId ?? null, { topic: topicName, difficulty: diff, count: questions.length, grounding: mode })
+    logActivity('generate_mcq', topicId ?? null, { topic: topicName, difficulty: diff, count: questions.length, grounding: mode, provider: provider === 'openrouter' ? 'openrouter' : 'groq' })
     return NextResponse.json({ questions }, { headers: { 'X-AI-Tokens': String(ctx.tokens ?? 0) } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 })

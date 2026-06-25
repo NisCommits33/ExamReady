@@ -27,6 +27,10 @@ export interface Topic {
   ai_priority: number
   exam_id?: string | null
   section_id?: string | null
+  // True when the user has uploaded their own source material for this topic
+  // (topic_notes.official_source_2). Merged at fetch time; used to highlight
+  // personalised topics in lists. Optional — not every fetch populates it.
+  has_user_source?: boolean
   created_at: string
 }
 

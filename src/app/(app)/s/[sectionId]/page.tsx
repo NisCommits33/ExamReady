@@ -14,9 +14,11 @@ export default async function SectionPage({ params }: { params: Promise<{ sectio
 
   const [{ data: rawTopics }, { data: keyPoints }] = await Promise.all([
     supabase.from('topics').select(TOPIC_WITH_PROGRESS).eq('section_id', sectionId).order('topic_number'),
-    supabase.from('topic_notes').select('topic_id,key_points'),
+    supabase.from('topic_notes').select('topic_id,key_points,official_source_2'),
   ])
-  const topics = flattenTopics(rawTopics)
+  // Topics whose user has uploaded their own source material — used to highlight them in lists.
+  const userSourceTopicIds = new Set((keyPoints ?? []).filter(n => n.official_source_2).map(n => n.topic_id))
+  const topics = flattenTopics(rawTopics).map(t => ({ ...t, has_user_source: userSourceTopicIds.has(t.id) }))
   const topicIds = new Set(topics.map(t => t.id))
   const tkp = (keyPoints ?? []).filter(kp => topicIds.has(kp.topic_id))
 

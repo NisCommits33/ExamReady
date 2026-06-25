@@ -7,6 +7,8 @@ import { cn, relativeDate } from '@/lib/utils'
 import { ChatPanel } from '@/components/ai/ChatPanel'
 import { Markdown } from '@/components/ui/Markdown'
 import { SimplifiableContent } from '@/components/shared/SimplifiableContent'
+import { ScrollToTop } from '@/components/shared/ScrollToTop'
+import { SourceMeta } from '@/components/shared/SourceMeta'
 import { LoadingStream, StreamingSkeleton } from '@/components/shared/LoadingStream'
 import { StatusToggle } from '@/components/shared/StatusToggle'
 import { SubtopicDetail } from '@/components/shared/SubtopicDetail'
@@ -208,22 +210,26 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
             {studyTabs.map(t => (
               <button key={t.key} onClick={() => setStudyTab(t.key)} className={cn('flex-shrink-0 px-4 py-2.5 text-sm font-medium transition-all duration-150 border-b-2 -mb-px flex items-center gap-1.5', studyTab === t.key ? 'text-brand-600 border-brand-600' : 'text-gray-400 border-transparent hover:text-gray-600 dark:hover:text-gray-300')}>
                 {t.label}
+                {t.key === 'your_source' && topicNote?.official_source_2 && <span className="w-1.5 h-1.5 rounded-full bg-violet-400" title="You added your own source" />}
                 {extracting && (t.key === 'keypoints' || t.key === 'tips') && <span className="w-3 h-3 border border-gray-300 border-t-brand-400 rounded-full animate-spin" />}
               </button>
             ))}
           </div>
 
           {studyTab === 'source' && topicNote?.official_source && (
-            <SimplifiableContent
-              content={topicNote.official_source}
-              topicName={topic.name}
-              header={
-                <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg">
-                  <span className="text-[11px] font-semibold text-white bg-brand-600 px-1.5 py-0.5 rounded-full">Official</span>
-                  <span className="text-xs text-brand-700 dark:text-brand-300">Original source material for this topic</span>
-                </div>
-              }
-            />
+            <div>
+              <SimplifiableContent
+                content={topicNote.official_source}
+                topicName={topic.name}
+                header={
+                  <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg">
+                    <span className="text-[11px] font-semibold text-white bg-brand-600 px-1.5 py-0.5 rounded-full">Official</span>
+                    <span className="text-xs text-brand-700 dark:text-brand-300">Original source material for this topic</span>
+                  </div>
+                }
+              />
+              <SourceMeta note={topicNote} />
+            </div>
           )}
 
           {studyTab === 'your_source' && (
@@ -311,6 +317,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
         </div>
       )}
 
+      <ScrollToTop />
       <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} topicId={topic.id} topicName={topic.name} />
     </div>
   )

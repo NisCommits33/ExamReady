@@ -65,7 +65,7 @@ export function GKDrillPanel({ topic, subtopic, section }: Props) {
     const subsections = effectiveSubName ? [effectiveSubName] : (subOptions.length ? subOptions.map(s => s.name) : (topic?.subsections ?? []))
     const res = await fetch('/api/ai/generate-mcq', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topicName, subsections, difficulty, count: want, topicId: topic?.id, subtopicId: effectiveSubId, grounding: section ? 'general' : grounding }),
+      body: JSON.stringify({ topicName, subtopicName: effectiveSubName, subsections, difficulty, count: want, topicId: topic?.id, subtopicId: effectiveSubId, grounding: section ? 'general' : grounding }),
     })
     const json = await res.json().catch(() => ({}))
     notifyTokens(tokensFromRes(res))

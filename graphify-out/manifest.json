@@ -155,8 +155,8 @@
     "semantic_hash": ""
   },
   "src/app/api/ai/generate-mcq/route.ts": {
-    "mtime": 1781974714.7542107,
-    "ast_hash": "9b138f0c196bc7846575de17aae5df36",
+    "mtime": 1782211871.8435514,
+    "ast_hash": "71dab94eb8fcba53cc53acf250375053",
     "semantic_hash": ""
   },
   "src/app/api/ai/generate-note/route.ts": {
@@ -330,8 +330,8 @@
     "semantic_hash": ""
   },
   "src/components/gk/GKDrillPanel.tsx": {
-    "mtime": 1782115621.3977158,
-    "ast_hash": "fccc1d6db06d1380a16f6aafaa9c9f41",
+    "mtime": 1782210489.120419,
+    "ast_hash": "a4316f2febbdb0671c157045c14df620",
     "semantic_hash": ""
   },
   "src/components/iq/IQClient.tsx": {
@@ -690,8 +690,8 @@
     "semantic_hash": ""
   },
   "src/lib/usage.ts": {
-    "mtime": 1781957091.1415396,
-    "ast_hash": "9a34c4bcd589a5d118b4c3cd1dc722f1",
+    "mtime": 1782211812.2462003,
+    "ast_hash": "7731c7040f05a82b9402258b89d84b86",
     "semantic_hash": ""
   },
   "src/lib/utils.ts": {
@@ -925,8 +925,8 @@
     "semantic_hash": ""
   },
   "src/app/api/admin/subtopics/route.ts": {
-    "mtime": 1782117165.545933,
-    "ast_hash": "4b359b31858aedc34f0b3a36a08a79d3",
+    "mtime": 1782210735.936447,
+    "ast_hash": "2a94e5f216d5c85d983a3a7d4a80f87a",
     "semantic_hash": ""
   },
   "src/app/api/ai/suggest-subtopics/route.ts": {
@@ -935,13 +935,23 @@
     "semantic_hash": ""
   },
   "src/components/admin/SubtopicManager.tsx": {
-    "mtime": 1782117195.9154325,
-    "ast_hash": "f673e4b80fc1d907548baff4d324c4b9",
+    "mtime": 1782210777.013545,
+    "ast_hash": "358b8dadfc8dbfb441d71d5acd570def",
     "semantic_hash": ""
   },
   "src/components/admin/TopicMcqManager.tsx": {
-    "mtime": 1782127855.3386753,
-    "ast_hash": "9adb682b9fb68e4eefc86992cbdc2c60",
+    "mtime": 1782211901.0460498,
+    "ast_hash": "8d8b1ca85ac726a6c9ab12199bad008f",
+    "semantic_hash": ""
+  },
+  "src/lib/markdown.ts": {
+    "mtime": 1782210713.8694508,
+    "ast_hash": "9af0e6fa3e63048dcb75e3d694ce1cd6",
+    "semantic_hash": ""
+  },
+  "src/lib/openrouter.ts": {
+    "mtime": 1782211828.129977,
+    "ast_hash": "a66d3ff7f5012dc6db0f7f84dafb415f",
     "semantic_hash": ""
   }
 }

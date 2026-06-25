@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Trash2, ChevronUp, ChevronDown, RefreshCw, Sparkles, Check, Pencil } from 'lucide-react'
+import { Loader2, Plus, Trash2, ChevronUp, ChevronDown, RefreshCw, Sparkles, Check, Pencil, Scissors } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -71,6 +71,11 @@ export function SubtopicManager({ topicId, topicName }: { topicId: string; topic
     setBusy(false)
     if (json) { if (ok) toast.success(ok); await load() }
     return !!json
+  }
+
+  async function splitFromSource() {
+    if (!(await confirm({ title: 'Split source into subtopics?', message: 'Each heading in the uploaded source becomes a subtopic, with that section’s text saved as its source. Existing names are skipped.', confirmLabel: 'Split' }))) return
+    await run({ action: 'splitFromSource', topicId }, 'Subtopics created from source')
   }
 
   async function suggest() {
@@ -171,6 +176,14 @@ export function SubtopicManager({ topicId, topicName }: { topicId: string; topic
         <textarea value={bulk} onChange={e => setBulk(e.target.value)} rows={4} placeholder={'Rivers\nMountains\nLakes'} className="mt-1.5 w-full text-xs border border-gray-200 dark:border-[#30363D] dark:bg-[#1C2128] rounded-md p-2 resize-y focus:outline-none" />
         <button onClick={async () => { if (await run({ action: 'addMany', topicId, names: bulk }, 'Imported')) setBulk('') }} disabled={busy || !bulk.trim()} className="mt-1.5 text-xs font-medium text-white bg-brand-600 px-2.5 py-1.5 rounded-md hover:bg-brand-800 disabled:opacity-40">Import list</button>
       </details>
+
+      {/* Split source */}
+      <div className="border-t border-gray-200 dark:border-[#21262D] pt-2.5">
+        <button onClick={splitFromSource} disabled={busy} className="inline-flex items-center gap-1.5 text-xs font-medium text-white bg-brand-600 px-2.5 py-1.5 rounded-md hover:bg-brand-800 disabled:opacity-40">
+          <Scissors size={12} /> Split uploaded source → subtopics
+        </button>
+        <p className="text-[10px] text-gray-400 mt-1">Each heading becomes a subtopic with its section saved as that subtopic’s source — so per-subtopic MCQ generation is accurate.</p>
+      </div>
 
       {/* Suggest */}
       <div className="border-t border-gray-200 dark:border-[#21262D] pt-2.5">

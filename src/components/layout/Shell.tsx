@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { AnnouncementBanner, type BannerAnnouncement } from './AnnouncementBanner'
 import { SessionLogSheet } from '@/components/sessions/SessionLogSheet'
+import { PomodoroTimer } from '@/components/shared/PomodoroTimer'
 import { Toaster } from '@/components/ui/sonner'
 import { PlusCircle } from 'lucide-react'
 
@@ -36,6 +37,9 @@ export function Shell({ children, examName, sections, isSuperAdmin = false, anno
           <PlusCircle size={22} strokeWidth={2} />
         </button>
       )}
+
+      {/* Pomodoro focus timer — students only, keeps running across navigation */}
+      {!isSuperAdmin && <PomodoroTimer />}
 
       {!isSuperAdmin && <SessionLogSheet open={sessionOpen} onOpenChange={setSessionOpen} />}
 

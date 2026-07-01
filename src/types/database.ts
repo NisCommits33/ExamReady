@@ -262,15 +262,6 @@ export interface RecallRep {
   created_at: string
 }
 
-export interface KeyNumber {
-  id: string
-  topic_id: string | null
-  fact: string
-  value: string
-  created_at: string
-  topics?: { name: string } | null
-}
-
 export interface TopicFlag {
   id: string
   topic_id: string

@@ -26,7 +26,6 @@ interface Props {
   weeklyReport: WeeklyReport | null
   activities: ActivityLog[]
   dueCardCount: number
-  numberCount: number
 }
 
 export function DashboardClient(props: Props) {
@@ -78,7 +77,7 @@ export function DashboardClient(props: Props) {
       )}
 
       {/* Daily review */}
-      <DailyReview dueCardCount={props.dueCardCount} numberCount={props.numberCount} />
+      <DailyReview dueCardCount={props.dueCardCount} />
 
       {/* 2-col on desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

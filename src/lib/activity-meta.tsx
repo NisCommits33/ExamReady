@@ -1,6 +1,6 @@
 import {
   FileText, Sparkles, Brain, MessageSquare, CalendarClock, LifeBuoy, PenLine,
-  Globe, Flame, Hash, BookOpen, Upload, Wand2,
+  Globe, Flame, BookOpen, Upload, Wand2,
 } from 'lucide-react'
 
 export interface ActionMeta { label: string; Icon: typeof FileText; color: string }
@@ -22,7 +22,6 @@ export const ACTION_META: Record<string, ActionMeta> = {
   simplify:               { label: 'Simplified content',           Icon: Wand2,         color: 'text-purple-500' },
   elaborate:              { label: 'Elaborated a topic',           Icon: Globe,         color: 'text-brand-500' },
   extract_source:         { label: 'Uploaded a source',            Icon: Upload,        color: 'text-brand-500' },
-  extract_numbers:        { label: 'Extracted key numbers',        Icon: Hash,          color: 'text-teal-500' },
   scaffold_exam:          { label: 'Scaffolded an exam',           Icon: BookOpen,      color: 'text-brand-500' },
   suggest_subtopics:      { label: 'Suggested subtopics',          Icon: Sparkles,      color: 'text-brand-500' },
   refresh_current_affairs:{ label: 'Refreshed current affairs',    Icon: Globe,         color: 'text-teal-500' },

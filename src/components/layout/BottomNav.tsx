@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Brain, Globe, Flame, Hash, BarChart3, BookOpen, Shield } from 'lucide-react'
+import { Home, Brain, Globe, Flame, Sparkles, BarChart3, BookOpen, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { NavSection } from './Shell'
 
@@ -18,7 +18,7 @@ export function BottomNav({ sections = [], isSuperAdmin = false }: { sections?: 
     : [
         { href: '/',        label: 'Home',    Icon: Home      },
         ...sectionNav,
-        { href: '/numbers', label: 'Numbers', Icon: Hash      },
+        { href: '/review', label: 'Review', Icon: Sparkles  },
         { href: '/progress', label: 'Stats', Icon: BarChart3 },
       ]
 

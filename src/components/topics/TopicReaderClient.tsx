@@ -244,7 +244,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
             {!editingSource && note?.official_source_2 ? (
               <div>
                 <div className="mb-4 flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-[#1C2128] border border-gray-200 dark:border-[#30363D] rounded-lg">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Your own source material — used to ground AI notes, MCQs and key numbers.</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Your own source material — used to ground AI notes and MCQs.</span>
                   <button
                     onClick={() => { setSourceDraft(note.official_source_2 ?? ''); setEditingSource(true) }}
                     className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors"

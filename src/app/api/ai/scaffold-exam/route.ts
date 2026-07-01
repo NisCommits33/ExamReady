@@ -42,7 +42,10 @@ Rules:
       { role: 'user', content: `Exam: ${examName ?? ''}\n\nSyllabus (may be empty):\n${(syllabus ?? '').slice(0, 6000)}` },
     ], { action: 'scaffold_exam' })
 
-    const sections = (data.sections ?? []).slice(0, 6)
+    const sections = (Array.isArray(data.sections) ? data.sections : []).slice(0, 6)
+    if (sections.length === 0) {
+      return NextResponse.json({ error: 'Scaffolder returned no sections' }, { status: 502 })
+    }
     let sectionCount = 0
     let topicCount = 0
 

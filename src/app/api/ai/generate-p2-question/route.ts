@@ -7,7 +7,7 @@ import { getExamPromptContext } from '@/lib/exam'
 
 export async function POST(req: Request) {
   const blocked = await quotaGuard(); if (blocked) return blocked
-  const { topicName, subsections, marks, topicId } = await req.json()
+  const { topicName, subsections, marks, topicId, excludeQuestions } = await req.json()
   if (!topicName || !marks) {
     return NextResponse.json({ error: 'Missing topicName or marks' }, { status: 400 })
   }
@@ -15,7 +15,10 @@ export async function POST(req: Request) {
 
   const markCount = marks === '5mark' ? 5 : 10
 
-  let previousQuestions: string[] = []
+  // Questions already asked: answered ones (from the DB) plus ones shown this session (from the client).
+  let previousQuestions: string[] = Array.isArray(excludeQuestions)
+    ? (excludeQuestions as unknown[]).filter((q): q is string => typeof q === 'string' && q.trim().length > 0)
+    : []
   if (topicId) {
     try {
       const supabase = await createClient()
@@ -26,13 +29,18 @@ export async function POST(req: Request) {
         .not('question_text', 'is', null)
         .order('attempted_at', { ascending: false })
         .limit(10)
-      previousQuestions = (data ?? []).map(r => r.question_text).filter(Boolean) as string[]
+      const answered = (data ?? []).map(r => r.question_text).filter(Boolean) as string[]
+      previousQuestions = [...new Set([...previousQuestions, ...answered])].slice(0, 20)
     } catch {}
   }
 
   const avoidBlock = previousQuestions.length > 0
     ? `\n\nIMPORTANT: The student has already been asked these questions — do NOT repeat or rephrase any of them. Generate a completely different question covering a different aspect of the topic:\n${previousQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
     : ''
+
+  // A per-request seed + explicit instruction so repeated generations don't return the same question.
+  const seed = Math.random().toString(36).slice(2, 8)
+  const variation = `\n\nVariation seed: ${seed}. Produce a FRESH, DIFFERENT question from any previous run — vary the angle, wording, and which subsection you test. Avoid the most obvious textbook phrasing.`
 
   try {
     const ctx = { action: 'generate_p2_question', tokens: 0 }
@@ -64,14 +72,14 @@ Return JSON:
   "hints": ["hint 1 — key point to cover", "hint 2", "hint 3"]
 }
 
-The hints are NOT shown during writing — they are used for AI grading guidance only.
-Make the question specific to the topic, not generic. Ground it in this exam's real-world field.${avoidBlock}`,
+Provide 3 concise hints — the key points a strong answer should cover. These help the student if they get stuck, and guide AI grading.
+Make the question specific to the topic, not generic. Ground it in this exam's real-world field.${avoidBlock}${variation}`,
       },
       {
         role: 'user',
         content: `Topic: ${topicName}\nSubsections: ${(subsections ?? []).join(', ')}\nMarks: ${markCount}`,
       },
-    ], ctx)
+    ], ctx, { temperature: 0.9 })
 
     logActivity('generate_p2_question', topicId, { marks: markCount, question: data.question })
     return NextResponse.json({ question: data.question, hints: data.hints, marks: markCount }, { headers: { 'X-AI-Tokens': String(ctx.tokens ?? 0) } })

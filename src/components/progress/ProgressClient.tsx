@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { ProgressBar } from '@/components/shared/ProgressBar'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { IQ_QUESTION_TYPES } from '@/lib/constants'
+import Link from 'next/link'
+import { Sparkles, Lightbulb, Dumbbell } from 'lucide-react'
 import { cn, relativeDate, coveragePct } from '@/lib/utils'
 import type { Topic, IQStats, DrillResult } from '@/types/database'
 import { daysToExam } from '@/lib/utils'
@@ -16,6 +18,9 @@ interface ProgressClientProps {
   iqStats: IQStats[]
   sureCalibration: number | null
   drills: DrillResult[]
+  dueReviews: number
+  fluentTopics: number
+  explanationCount: number
 }
 
 const SECTION_META: Record<string, { label: string; color: string; fallback: string }> = {
@@ -24,7 +29,7 @@ const SECTION_META: Record<string, { label: string; color: string; fallback: str
   arff: { label: 'ARFF', color: 'bg-teal-50 text-teal-800',     fallback: 'Mock exam' },
 }
 
-export function ProgressClient({ topics, p1Coverage, p2Coverage, overallReadiness, iqStats, sureCalibration, drills }: ProgressClientProps) {
+export function ProgressClient({ topics, p1Coverage, p2Coverage, overallReadiness, iqStats, sureCalibration, drills, dueReviews, fluentTopics, explanationCount }: ProgressClientProps) {
   const [paperFilter, setPaperFilter] = useState<'all' | 1 | 2>('all')
   const [showAll, setShowAll] = useState(false)
 
@@ -77,6 +82,28 @@ export function ProgressClient({ topics, p1Coverage, p2Coverage, overallReadines
               <p className="text-lg font-semibold text-gray-900">{overallReadiness}%</p>
               <p className="text-[9px] text-gray-400 font-medium uppercase tracking-wide">READY</p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Learning techniques */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Learning techniques</p>
+        <div className="grid grid-cols-3 gap-2">
+          <Link href="/review" className="flex flex-col items-center gap-1 py-3 rounded-lg bg-teal-50 hover:bg-teal-100 transition-colors">
+            <Sparkles size={16} className="text-teal-500" />
+            <span className="text-lg font-semibold text-gray-900 tabular-nums">{dueReviews}</span>
+            <span className="text-[10px] text-gray-500 text-center leading-tight">cards due<br />to review</span>
+          </Link>
+          <div className="flex flex-col items-center gap-1 py-3 rounded-lg bg-purple-50">
+            <Dumbbell size={16} className="text-purple-500" />
+            <span className="text-lg font-semibold text-gray-900 tabular-nums">{fluentTopics}</span>
+            <span className="text-[10px] text-gray-500 text-center leading-tight">topics<br />fluent</span>
+          </div>
+          <div className="flex flex-col items-center gap-1 py-3 rounded-lg bg-amber-50">
+            <Lightbulb size={16} className="text-amber-500" />
+            <span className="text-lg font-semibold text-gray-900 tabular-nums">{explanationCount}</span>
+            <span className="text-[10px] text-gray-500 text-center leading-tight">Feynman<br />explanations</span>
           </div>
         </div>
       </div>

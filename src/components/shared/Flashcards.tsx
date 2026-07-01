@@ -1,11 +1,20 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { RotateCcw, CheckCircle2, XCircle, CalendarClock } from 'lucide-react'
+import { RotateCcw, CheckCircle2, CalendarClock } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import { cardKey, nextOnKnown, nextOnReview, isDue } from '@/lib/spaced-repetition'
+import { cardKey, schedule, isDue, type Grade } from '@/lib/spaced-repetition'
+import { reviewRow, REVIEW_CONFLICT } from '@/lib/review-cards'
 import type { Topic } from '@/types/database'
+
+const GRADES: { grade: Grade; label: string; cls: string }[] = [
+  { grade: 'again', label: 'Again', cls: 'border-danger-300 dark:border-danger-700 text-danger-700 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/20' },
+  { grade: 'hard',  label: 'Hard',  cls: 'border-warning-300 dark:border-warning-700 text-warning-700 dark:text-warning-400 hover:bg-warning-50 dark:hover:bg-warning-900/20' },
+  { grade: 'good',  label: 'Good',  cls: 'border-brand-300 dark:border-brand-700 text-brand-700 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20' },
+  { grade: 'easy',  label: 'Easy',  cls: 'border-success-300 dark:border-success-700 text-success-700 dark:text-success-400 hover:bg-success-50 dark:hover:bg-success-900/20' },
+]
 
 interface Props {
   topics: Topic[]
@@ -22,6 +31,10 @@ interface Card {
 
 interface ReviewState {
   ease: number
+  ef: number
+  reps: number
+  lapses: number
+  interval_days: number
   due_date: string | null
 }
 
@@ -47,6 +60,7 @@ export function Flashcards({ topics, topicKeyPoints }: Props) {
   const [reviews, setReviews] = useState<Record<string, ReviewState>>({})
   const [done, setDone] = useState<Set<string>>(new Set())
   const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const allCards = useMemo(() => {
     const cards: Card[] = []
@@ -66,8 +80,8 @@ export function Flashcards({ topics, topicKeyPoints }: Props) {
       const keys = allCards.map(c => c.key)
       const map: Record<string, ReviewState> = {}
       for (let i = 0; i < keys.length; i += 200) {
-        const { data } = await supabase.from('flashcard_reviews').select('card_key,ease,due_date').in('card_key', keys.slice(i, i + 200))
-        for (const r of data ?? []) map[r.card_key] = { ease: r.ease, due_date: r.due_date }
+        const { data } = await supabase.from('flashcard_reviews').select('card_key,ease,ef,reps,lapses,interval_days,due_date').in('card_key', keys.slice(i, i + 200))
+        for (const r of data ?? []) map[r.card_key] = { ease: r.ease, ef: r.ef ?? 2.5, reps: r.reps ?? 0, lapses: r.lapses ?? 0, interval_days: r.interval_days ?? 0, due_date: r.due_date }
       }
       setReviews(map)
       setLoaded(true)
@@ -92,26 +106,23 @@ export function Flashcards({ topics, topicKeyPoints }: Props) {
 
   function advance() { setFlipped(false); const n = findNext(index + 1); if (n !== null) setIndex(n); else setIndex(cards.length) }
 
-  async function mark(known: boolean) {
+  async function mark(grade: Grade) {
     const card = cards[index]
-    if (!card) return
-    const cur = reviews[card.key]?.ease ?? 0
-    const sched = known ? nextOnKnown(cur) : nextOnReview()
-    setReviews(prev => ({ ...prev, [card.key]: { ease: sched.ease, due_date: sched.due_date } }))
-    setDone(prev => new Set(prev).add(card.key))
+    if (!card || saving) return
+    setSaving(true)
+    const prev = reviews[card.key]
+    const sched = schedule(grade, prev ?? {})
+    setReviews(p => ({ ...p, [card.key]: { ease: sched.ease, ef: sched.ef, reps: sched.reps, lapses: sched.lapses, interval_days: sched.interval_days, due_date: sched.due_date } }))
+    setDone(p => new Set(p).add(card.key))
     advance()
 
     const supabase = createClient()
-    await supabase.from('flashcard_reviews').upsert({
-      card_key: card.key,
-      topic_id: card.topicId,
-      front: card.front,
-      back: card.back,
-      ease: sched.ease,
-      interval_days: sched.interval_days,
-      due_date: sched.due_date,
-      last_reviewed: new Date().toISOString(),
-    }, { onConflict: 'card_key' })
+    const { error } = await supabase.from('flashcard_reviews').upsert(
+      reviewRow({ card_key: card.key, topic_id: card.topicId, front: card.front, back: card.back, source: 'keypoint' }, sched),
+      { onConflict: REVIEW_CONFLICT },
+    )
+    if (error) toast.error('Could not save review progress')
+    setSaving(false)
   }
 
   const dueCount = useMemo(() => {
@@ -172,10 +183,15 @@ export function Flashcards({ topics, topicKeyPoints }: Props) {
               </div>
             </div>
           </div>
-          <div className="flex gap-3">
-            <button onClick={() => mark(false)} className="flex-1 flex items-center justify-center gap-1.5 py-3 border-2 border-warning-300 dark:border-warning-700 text-warning-700 dark:text-warning-400 text-sm font-medium rounded-xl hover:bg-warning-50 dark:hover:bg-warning-900/20 transition-colors"><XCircle size={15} /> Review again</button>
-            <button onClick={() => mark(true)} className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-success-400 text-white text-sm font-medium rounded-xl hover:bg-success-600 transition-colors"><CheckCircle2 size={15} /> Know it</button>
-          </div>
+          {flipped ? (
+            <div className="grid grid-cols-4 gap-2">
+              {GRADES.map(g => (
+                <button key={g.grade} onClick={() => mark(g.grade)} disabled={saving} className={cn('py-3 border-2 text-sm font-medium rounded-xl transition-colors disabled:opacity-50', g.cls)}>{g.label}</button>
+              ))}
+            </div>
+          ) : (
+            <button onClick={() => setFlipped(true)} className="w-full py-3 bg-brand-600 text-white text-sm font-medium rounded-xl hover:bg-brand-800 transition-colors">Show answer</button>
+          )}
         </>
       )}
     </div>

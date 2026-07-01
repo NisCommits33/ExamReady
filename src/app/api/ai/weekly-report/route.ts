@@ -53,7 +53,7 @@ Write 5 lines: 1) What improved 2) What stalled 3) Biggest risk 4) One specific 
       .from('weekly_reports')
       .upsert(
         { week_start: weekStart, content: data.report, risk_topics: data.risk_topics, generated_at: new Date().toISOString() },
-        { onConflict: 'week_start' }
+        { onConflict: 'user_id,week_start' }
       )
       .select()
       .single()

@@ -49,8 +49,13 @@ Return JSON: { "questions": [ ... ] }`
         content: `Generate ${count} ${picked?.label ?? 'mixed reasoning'} questions (category: ${picked?.category ?? 'verbal'}). Difficulty mix: ${difficulty}.`,
       },
     ], ctx)
+    // Guard against the model returning a non-array shape, which would crash the client.
+    const questions = Array.isArray(data?.questions) ? data.questions : []
+    if (questions.length === 0) {
+      return NextResponse.json({ error: 'No questions generated' }, { status: 502 })
+    }
     logActivity('generate_iq', null, { type: picked?.id, category: picked?.category, count, difficulty })
-    return NextResponse.json(data, { headers: { 'X-AI-Tokens': String(ctx.tokens ?? 0) } })
+    return NextResponse.json({ questions }, { headers: { 'X-AI-Tokens': String(ctx.tokens ?? 0) } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 })
   }

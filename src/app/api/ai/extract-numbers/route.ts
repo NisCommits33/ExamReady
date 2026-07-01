@@ -41,13 +41,22 @@ Rules:
 
     const numbers = (data.numbers ?? []).filter(n => n.fact && n.value)
 
-    // Replace existing numbers for this topic
-    await supabase.from('key_numbers').delete().eq('topic_id', topicId)
-    if (numbers.length) {
-      await supabase.from('key_numbers').insert(
-        numbers.map(n => ({ topic_id: topicId, exam_id: topic?.exam_id ?? null, fact: n.fact, value: n.value }))
-      )
+    // Don't wipe existing numbers if the AI returned nothing usable.
+    if (numbers.length === 0) {
+      return NextResponse.json({ error: 'No numbers extracted; existing numbers kept', count: 0, numbers: [] }, { status: 502 })
     }
+
+    // Replace existing numbers for this topic: insert the new set first, then remove the old rows,
+    // so a failed insert can't leave the topic with no numbers.
+    const { data: oldRows } = await supabase.from('key_numbers').select('id').eq('topic_id', topicId)
+    const oldIds = (oldRows ?? []).map(r => r.id)
+    const { error: insertErr } = await supabase.from('key_numbers').insert(
+      numbers.map(n => ({ topic_id: topicId, exam_id: topic?.exam_id ?? null, fact: n.fact, value: n.value }))
+    )
+    if (insertErr) {
+      return NextResponse.json({ error: `Failed to save numbers: ${insertErr.message}` }, { status: 500 })
+    }
+    if (oldIds.length) await supabase.from('key_numbers').delete().in('id', oldIds)
 
     logActivity('extract_numbers', topicId, { count: numbers.length })
     return NextResponse.json({ count: numbers.length, numbers })

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Loader2, FileImage, X, Sparkles, ChevronDown, ChevronUp, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
+import { Loader2, FileImage, X, Sparkles, ChevronDown, ChevronUp, CheckCircle2, XCircle, RotateCcw, Lightbulb } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -39,7 +39,10 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
   const [gradeResult, setGradeResult] = useState<GradeResult | null>(null)
   const [resultQuestion, setResultQuestion] = useState('')
   const [showModelAnswer, setShowModelAnswer] = useState(false)
+  const [showHint, setShowHint] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  // Every question shown this session (answered or not) so the API won't repeat them.
+  const seenQuestionsRef = useRef<string[]>(initialAnswers.map(a => a.question_text).filter(Boolean) as string[])
 
   async function generateQuestion(marks: QuestionType) {
     setGeneratingQuestion(marks)
@@ -52,17 +55,20 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
           subsections: topic.subsections,
           marks,
           topicId: topic.id,
+          excludeQuestions: seenQuestionsRef.current.slice(-20),
         }),
       })
       const data = await res.json()
       notifyTokens(tokensFromRes(res))
       if (data.question) {
+        seenQuestionsRef.current.push(data.question)
         setQuestion(data.question)
         setQuestionHints(data.hints ?? [])
+        setShowHint(false)
         setMode(marks)
         setPhase('write')
       } else {
-        toast.error('Could not generate question')
+        toast.error(data.error ?? 'Could not generate question')
       }
     } catch {
       toast.error('Generation failed')
@@ -148,6 +154,7 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
     setGradeResult(null)
     setResultQuestion('')
     setShowModelAnswer(false)
+    setShowHint(false)
   }
 
   // ── Result phase ──────────────────────────────────────────────────────────
@@ -284,6 +291,33 @@ export function P2AnswerTab({ topic, answers: initialAnswers, existingNote }: Pr
           <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800/50 rounded-xl p-4 mb-4">
             <p className="text-[11px] font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wide mb-1.5">Question</p>
             <p className="text-sm text-teal-900 dark:text-teal-100 leading-relaxed">{question}</p>
+          </div>
+        )}
+
+        {/* Hint — hidden until the student asks for it */}
+        {questionHints.length > 0 && (
+          <div className="mb-4">
+            <button
+              onClick={() => setShowHint(h => !h)}
+              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
+            >
+              <Lightbulb size={13} />
+              {showHint ? 'Hide hint' : 'Show hint'}
+              {showHint ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </button>
+            {showHint && (
+              <div className="mt-2 bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/50 rounded-xl p-3">
+                <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-1.5">Key points to cover</p>
+                <ul className="space-y-1">
+                  {questionHints.map((h, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-amber-900 dark:text-amber-200">
+                      <span className="text-amber-400 mt-0.5">•</span>
+                      <span>{h}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 

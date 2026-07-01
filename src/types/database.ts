@@ -217,16 +217,48 @@ export interface ActivityLog {
   created_at: string
 }
 
+export type CardSource = 'keypoint' | 'feynman_gap' | 'recall_miss' | 'drill'
+
 export interface FlashcardReview {
   card_key: string
+  user_id: string
   topic_id: string | null
   front: string
   back: string
   interval_days: number
   ease: number
+  ef: number
+  reps: number
+  lapses: number
+  source: CardSource | null
   due_date: string
   last_reviewed: string | null
   review_count: number
+  created_at: string
+}
+
+export interface Explanation {
+  id: string
+  user_id: string
+  topic_id: string | null
+  text: string
+  clarity_score: number | null
+  jargon: string[]
+  gaps: string[]
+  created_at: string
+}
+
+export type RecallMode = 'write' | 'speak'
+
+export interface RecallRep {
+  id: string
+  user_id: string
+  topic_id: string | null
+  prompt: string | null
+  mode: RecallMode
+  score: number | null
+  passed: boolean
+  streak: number
   created_at: string
 }
 

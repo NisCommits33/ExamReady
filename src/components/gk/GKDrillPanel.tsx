@@ -105,7 +105,7 @@ export function GKDrillPanel({ topic, subtopic, section }: Props) {
       if (!savedRef.current) {
         savedRef.current = true
         const correct = results.filter(r => r.correct).length
-        saveDrillResult({ section: 'gk', topicId: topic?.id ?? null, subtopicId: effectiveSubId ?? null, score: correct, total: results.length })
+        saveDrillResult({ section: 'gk', topicId: topic?.id ?? null, subtopicId: effectiveSubId ?? null, topicName: topic?.name ?? null, score: correct, total: results.length })
       }
       return
     }

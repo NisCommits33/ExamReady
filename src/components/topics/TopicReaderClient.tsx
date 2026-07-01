@@ -18,9 +18,12 @@ import { notifyTokens } from '@/lib/notify-tokens'
 import { SimplifiableContent } from '@/components/shared/SimplifiableContent'
 import { ScrollToTop } from '@/components/shared/ScrollToTop'
 import { SourceMeta } from '@/components/shared/SourceMeta'
+import { RecallTab } from '@/components/topics/RecallTab'
+import { ExplainTab } from '@/components/topics/ExplainTab'
+import { DrillItTab } from '@/components/topics/DrillItTab'
 import type { Topic, TopicNote, UserAnnotation, TopicStatus } from '@/types/database'
 
-type Tab = 'source' | 'your_source' | 'note' | 'keypoints' | 'tips'
+type Tab = 'source' | 'your_source' | 'note' | 'keypoints' | 'tips' | 'recall' | 'explain' | 'drill'
 
 interface Props {
   topic: Topic
@@ -57,6 +60,9 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
     { key: 'note',      label: 'AI note'     },
     { key: 'keypoints', label: 'Key points'  },
     { key: 'tips',      label: 'Exam tips'   },
+    { key: 'recall',    label: 'Recall'      },
+    { key: 'explain',   label: 'Explain'     },
+    { key: 'drill',     label: 'Drill it'    },
   ]
 
   async function handleSourceFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -406,6 +412,15 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
             )}
           </div>
         )}
+
+        {/* Active recall */}
+        {tab === 'recall' && <RecallTab topic={topic} keyPoints={note?.key_points ?? null} />}
+
+        {/* Feynman explain-back */}
+        {tab === 'explain' && <ExplainTab topic={topic} keyPoints={note?.key_points ?? null} />}
+
+        {/* Recall by doing (muscle memory) */}
+        {tab === 'drill' && <DrillItTab topic={topic} note={note} />}
 
       </div>
 

@@ -16,12 +16,13 @@ interface SessionPlanSheetProps {
   onSaved: () => void
   editSession?: PlannedSession | null
   defaultDate?: string
+  defaultSlot?: string
 }
 
 const DURATIONS = [15, 30, 45, 60, 90]
 const SESSION_TYPES: SessionType[] = ['study', 'drill', 'review', 'iq']
 
-export function SessionPlanSheet({ open, onOpenChange, onSaved, editSession, defaultDate }: SessionPlanSheetProps) {
+export function SessionPlanSheet({ open, onOpenChange, onSaved, editSession, defaultDate, defaultSlot }: SessionPlanSheetProps) {
   const { topics } = useTopics()
   const isEdit = !!editSession
 
@@ -55,9 +56,9 @@ export function SessionPlanSheet({ open, onOpenChange, onSaved, editSession, def
       setTopicId('')
       setSearch('')
       setDuration(60)
-      setSlotTime('')
+      setSlotTime(defaultSlot ?? '')
     }
-  }, [editSession, defaultDate, open])
+  }, [editSession, defaultDate, defaultSlot, open])
 
   const filteredTopics = topics.filter(t =>
     t.paper === paper &&

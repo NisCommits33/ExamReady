@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { ArrowLeft, MessageSquare, Plus, Upload, Loader2, Pencil } from 'lucide-react'
-import { ChatPanel } from '@/components/ai/ChatPanel'
+import { useChatActions } from '@/components/ai/ChatProvider'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { StatusToggle } from '@/components/shared/StatusToggle'
@@ -36,7 +36,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
   const [note, setNote] = useState<TopicNote | null>(initialNote)
   const [annotations, setAnnotations] = useState(initialAnnotations)
   const [status, setStatus] = useState<TopicStatus>(topic.status)
-  const [chatOpen, setChatOpen] = useState(false)
+  const { openChat } = useChatActions()
   const [generating, setGenerating] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [streamText, setStreamText] = useState('')
@@ -415,7 +415,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
           <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl px-3 py-2 flex items-center gap-2 shadow-sm pointer-events-auto">
             <button
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
-              onClick={() => setChatOpen(true)}
+              onClick={() => openChat(topic.id, topic.name)}
             >
               <MessageSquare size={14} />Ask AI
             </button>
@@ -437,12 +437,6 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
         </div>
       )}
       <ScrollToTop />
-      <ChatPanel
-        open={chatOpen}
-        onClose={() => setChatOpen(false)}
-        topicId={topic.id}
-        topicName={topic.name}
-      />
     </div>
   )
 }

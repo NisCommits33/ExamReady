@@ -250,8 +250,8 @@
     "semantic_hash": ""
   },
   "src/components/ai/ChatPanel.tsx": {
-    "mtime": 1781957501.587734,
-    "ast_hash": "312e541258584962f6315082365464fa",
+    "mtime": 1782886872.0631835,
+    "ast_hash": "e9fa0ea46d9fe937e32155ecf075a6bb",
     "semantic_hash": ""
   },
   "src/components/arff/ARFFClient.tsx": {
@@ -365,8 +365,8 @@
     "semantic_hash": ""
   },
   "src/components/layout/Shell.tsx": {
-    "mtime": 1782635573.5342014,
-    "ast_hash": "e59f272b97e1fc1dc3479426809b291d",
+    "mtime": 1782886887.386381,
+    "ast_hash": "59c21c70d7f770b77b41ccb80297a9e3",
     "semantic_hash": ""
   },
   "src/components/layout/Sidebar.tsx": {
@@ -480,18 +480,18 @@
     "semantic_hash": ""
   },
   "src/components/shared/TopicDetail.tsx": {
-    "mtime": 1782382930.6982894,
-    "ast_hash": "9e9d1f1fed79a34e0bbab196400c4e8a",
+    "mtime": 1782886903.1681612,
+    "ast_hash": "55e091ca8c55c031e3a601de3b0a6f60",
     "semantic_hash": ""
   },
   "src/components/timetable/SessionPlanSheet.tsx": {
-    "mtime": 1781673728.8108451,
-    "ast_hash": "34c88863a234713be0c10cf9519f4284",
+    "mtime": 1782901876.8885396,
+    "ast_hash": "505c0ba2ee0a1d187aa84d4a5429b0a8",
     "semantic_hash": ""
   },
   "src/components/timetable/TimetableClient.tsx": {
-    "mtime": 1781858052.5351968,
-    "ast_hash": "f1e5cc503e0d2c1a1c10f74d0f8ffbd4",
+    "mtime": 1782902106.2611928,
+    "ast_hash": "9396e844155bfbb1a330e30799eaea8d",
     "semantic_hash": ""
   },
   "src/components/topics/P2AnswerTab.tsx": {
@@ -500,8 +500,8 @@
     "semantic_hash": ""
   },
   "src/components/topics/TopicReaderClient.tsx": {
-    "mtime": 1782382825.8052652,
-    "ast_hash": "52f9b7ca6cc4a0d8050f26e77fe9966c",
+    "mtime": 1782886919.0357642,
+    "ast_hash": "801a0a9c198f11ac94cef7f6b78a4926",
     "semantic_hash": ""
   },
   "src/components/ui/Markdown.tsx": {
@@ -630,8 +630,8 @@
     "semantic_hash": ""
   },
   "src/lib/constants.ts": {
-    "mtime": 1781630837.358751,
-    "ast_hash": "59a41239a67634f5054d09281ad3f317",
+    "mtime": 1782901604.2800176,
+    "ast_hash": "a208be50264214437c3ee5dc8ec6d362",
     "semantic_hash": ""
   },
   "src/lib/drill-results.ts": {
@@ -960,8 +960,8 @@
     "semantic_hash": ""
   },
   "src/components/shared/ScrollToTop.tsx": {
-    "mtime": 1782382716.869486,
-    "ast_hash": "79ad20d42f66cb187b32127e9de3a7a9",
+    "mtime": 1782895558.2400773,
+    "ast_hash": "9db8ccc50cf1af217f37ce8f0d623946",
     "semantic_hash": ""
   },
   "src/components/shared/SourceMeta.tsx": {
@@ -977,6 +977,26 @@
   "docs/admin-content-dataflow.md": {
     "mtime": 1782217152.2335992,
     "ast_hash": "b8cdf5e38506e5ebe6a26fa19cda9a1c",
+    "semantic_hash": ""
+  },
+  "src/components/ai/ChatProvider.tsx": {
+    "mtime": 1782886835.0236807,
+    "ast_hash": "d63019b6dc3b7b15bb5209d1a76b4001",
+    "semantic_hash": ""
+  },
+  "src/components/timetable/DayColumn.tsx": {
+    "mtime": 1782901848.790419,
+    "ast_hash": "ed2692678a4faefa427be48134edad78",
+    "semantic_hash": ""
+  },
+  "src/lib/timetable.ts": {
+    "mtime": 1782901722.8351305,
+    "ast_hash": "6a08294c5b85b42d3a7f5d95d9af4801",
+    "semantic_hash": ""
+  },
+  "docs/RAG_PLAN.md": {
+    "mtime": 1782886450.2823095,
+    "ast_hash": "242dc57bcfa81df77e18d6fbacee5454",
     "semantic_hash": ""
   }
 }

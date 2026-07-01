@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { BookOpen, PenLine, MessageSquare, Plus, ChevronRight, ChevronDown, Layers, RefreshCw, Upload, Loader2, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn, relativeDate } from '@/lib/utils'
-import { ChatPanel } from '@/components/ai/ChatPanel'
+import { useChatActions } from '@/components/ai/ChatProvider'
 import { Markdown } from '@/components/ui/Markdown'
 import { SimplifiableContent } from '@/components/shared/SimplifiableContent'
 import { ScrollToTop } from '@/components/shared/ScrollToTop'
@@ -38,7 +38,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
   const [generating, setGenerating] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [streamText, setStreamText] = useState('')
-  const [chatOpen, setChatOpen] = useState(false)
+  const { openChat, closeChat } = useChatActions()
   const [annotationText, setAnnotationText] = useState('')
   const [showAnnotation, setShowAnnotation] = useState(false)
   const [status, setStatus] = useState<TopicStatus>(topic.status)
@@ -150,7 +150,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
     <div>
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <button onClick={() => { onBack(); setChatOpen(false) }} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mb-2 transition-colors">← Back to topics</button>
+          <button onClick={() => { onBack(); closeChat() }} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mb-2 transition-colors">← Back to topics</button>
           <h1 className="text-base font-medium text-gray-900 dark:text-gray-100 leading-snug">{topic.name}</h1>
           <p className="text-xs text-gray-400 mt-0.5">Paper {topic.paper} · §{topic.section} · Topic {topic.topic_number}</p>
         </div>
@@ -306,7 +306,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
           {(studyTab === 'note' || studyTab === 'source' || studyTab === 'your_source') && (
             <div className="fixed bottom-16 md:bottom-4 left-0 right-0 md:left-60 flex justify-center px-4 pointer-events-none z-30">
               <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl px-3 py-2 flex items-center gap-2 shadow-sm pointer-events-auto">
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" onClick={() => setChatOpen(true)}><MessageSquare size={14} />Ask AI</button>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" onClick={() => openChat(topic.id, topic.name)}><MessageSquare size={14} />Ask AI</button>
                 <div className="w-px h-4 bg-gray-200 dark:bg-[#30363D]" />
                 <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 rounded-lg transition-colors" onClick={() => setShowAnnotation(true)}><Plus size={14} />Add note</button>
                 <div className="w-px h-4 bg-gray-200 dark:bg-[#30363D]" />
@@ -318,7 +318,6 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
       )}
 
       <ScrollToTop />
-      <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} topicId={topic.id} topicName={topic.name} />
     </div>
   )
 }

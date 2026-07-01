@@ -44,6 +44,12 @@ export const SESSION_TYPE_COLORS = {
   review: { bar: 'bg-gray-400',    label: 'Review' },
 } as const
 
+// Timetable hourly-grid layout
+export const GRID_PX_PER_HOUR = 56
+export const GRID_DEFAULT_START_HOUR = 6
+export const GRID_DEFAULT_END_HOUR = 22
+export const GRID_SNAP_MIN = 15
+
 export const NAV_ITEMS = [
   { href: '/',          label: 'Home',      icon: 'Home'       },
   { href: '/topics',    label: 'Topics',    icon: 'BookOpen'   },

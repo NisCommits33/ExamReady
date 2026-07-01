@@ -1,30 +1,25 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, Send, Loader2, MessageSquare } from 'lucide-react'
+import { X, Send, Square, Loader2, MessageSquare, Copy, RefreshCw, Trash2, Check } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/ui/Markdown'
-import { notifyTokens } from '@/lib/notify-tokens'
+import { useChatState, useChatActions } from './ChatProvider'
 
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-}
+/** Quick-start prompts shown in the empty state. */
+const TOPIC_PROMPTS = ['Explain this simply', 'Give me an MCQ', 'Common exam traps', 'Key numbers to remember']
+const GENERAL_PROMPTS = ['Quiz me on a weak area', 'Explain a tricky concept', 'How should I revise today?']
 
-interface ChatPanelProps {
-  open: boolean
-  onClose: () => void
-  topicId?: string
-  topicName?: string
-}
-
-export function ChatPanel({ open, onClose, topicId, topicName }: ChatPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([])
+export function ChatPanel() {
+  const { open, topicName, messages, streaming } = useChatState()
+  const { closeChat, clear, send, stop, regenerate } = useChatActions()
   const [input, setInput] = useState('')
-  const [streaming, setStreaming] = useState(false)
   const [kbInset, setKbInset] = useState(0) // px the on-screen keyboard covers (mobile)
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   // Keep the mobile bottom sheet above the on-screen keyboard via the VisualViewport API.
   useEffect(() => {
@@ -42,99 +37,78 @@ export function ChatPanel({ open, onClose, topicId, topicName }: ChatPanelProps)
   }, [open])
 
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 100)
-      if (messages.length === 0 && topicName) {
-        setMessages([{
-          role: 'assistant',
-          content: `Ask me anything about **${topicName}** — definitions, exam traps, key numbers, or practice MCQs.`,
-        }])
-      }
-    }
+    if (open) setTimeout(() => inputRef.current?.focus(), 100)
   }, [open])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  async function send() {
+  // Escape to close; trap Tab within the panel while it's open.
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); closeChat(); return }
+      if (e.key !== 'Tab' || !panelRef.current) return
+      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+        'button, textarea, [href], input, select, [tabindex]:not([tabindex="-1"])',
+      )
+      const list = Array.from(focusable).filter(el => !el.hasAttribute('disabled'))
+      if (list.length === 0) return
+      const first = list[0]
+      const last = list[list.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [open, closeChat])
+
+  function submit() {
     const text = input.trim()
     if (!text || streaming) return
     setInput('')
+    send(text)
+  }
 
-    const userMsg: Message = { role: 'user', content: text }
-    const newMessages = [...messages, userMsg]
-    setMessages(newMessages)
-    setStreaming(true)
-
-    const assistantMsg: Message = { role: 'assistant', content: '' }
-    setMessages(prev => [...prev, assistantMsg])
-
+  async function copyMessage(content: string, idx: number) {
     try {
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-          topicId,
-        }),
-      })
-
-      if (!res.ok) throw new Error('Failed')
-
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let full = ''
-      let tokens = 0
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = decoder.decode(value)
-        for (const line of chunk.split('\n')) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') break
-            try {
-              const json = JSON.parse(data)
-              if (typeof json.tokens === 'number') tokens = json.tokens
-              const delta = json.choices?.[0]?.delta?.content ?? ''
-              if (delta) {
-                full += delta
-                setMessages(prev => [
-                  ...prev.slice(0, -1),
-                  { role: 'assistant', content: full },
-                ])
-              }
-            } catch {}
-          }
-        }
-      }
-      notifyTokens(tokens)
+      await navigator.clipboard.writeText(content)
+      setCopiedIdx(idx)
+      setTimeout(() => setCopiedIdx(c => (c === idx ? null : c)), 1500)
     } catch {
-      setMessages(prev => [
-        ...prev.slice(0, -1),
-        { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' },
-      ])
-    } finally {
-      setStreaming(false)
+      toast('Could not copy to clipboard')
     }
+  }
+
+  function handleClear() {
+    clear()
+    toast('Chat cleared')
   }
 
   if (!open) return null
 
+  const isEmpty = messages.length === 0
+  const prompts = topicName ? TOPIC_PROMPTS : GENERAL_PROMPTS
+  const lastIsAssistant = messages.length > 0 && messages[messages.length - 1].role === 'assistant'
+
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-40 bg-black/20 dark:bg-black/50 md:hidden" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-black/20 dark:bg-black/50 md:hidden animate-in fade-in duration-200" onClick={closeChat} />
 
       {/* Panel */}
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Ask AI chat"
         style={kbInset > 0 ? { bottom: kbInset, height: `calc(85dvh - ${kbInset}px)` } : undefined}
         className={cn(
           'fixed z-50 flex flex-col bg-white dark:bg-[#161B22] shadow-2xl',
           'bottom-0 left-0 right-0 h-[85dvh] rounded-t-2xl',
           'md:top-0 md:bottom-0 md:right-0 md:left-auto md:h-full md:w-[400px] md:rounded-none md:rounded-l-2xl',
+          'animate-in slide-in-from-bottom md:slide-in-from-right duration-200 ease-out',
         )}
       >
         {/* Header */}
@@ -146,35 +120,102 @@ export function ChatPanel({ open, onClose, topicId, topicName }: ChatPanelProps)
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Ask AI</p>
             {topicName && <p className="text-xs text-gray-400 truncate">{topicName}</p>}
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1C2128] text-gray-400 transition-colors">
+          <button
+            onClick={handleClear}
+            disabled={isEmpty || streaming}
+            aria-label="Clear conversation"
+            title="Clear conversation"
+            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1C2128] text-gray-400 transition-colors disabled:opacity-30"
+          >
+            <Trash2 size={16} />
+          </button>
+          <button
+            onClick={closeChat}
+            aria-label="Close chat"
+            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1C2128] text-gray-400 transition-colors"
+          >
             <X size={16} />
           </button>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          {messages.map((msg, i) => (
-            <div key={i} className={cn('flex gap-2', msg.role === 'user' && 'justify-end')}>
-              {msg.role === 'assistant' && (
-                <div className="w-6 h-6 rounded-full bg-brand-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <span className="text-white text-[9px] font-bold">AI</span>
-                </div>
-              )}
-              <div className={cn(
-                'max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm',
-                msg.role === 'user'
-                  ? 'bg-brand-600 text-white rounded-tr-sm'
-                  : 'bg-gray-100 dark:bg-[#1C2128] text-gray-900 dark:text-gray-100 rounded-tl-sm'
-              )}>
-                {msg.role === 'assistant' ? (
-                  <Markdown compact>{msg.content || '…'}</Markdown>
-                ) : (
-                  <p>{msg.content}</p>
-                )}
+        <div aria-live="polite" className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          {isEmpty && (
+            <div className="flex flex-col items-center text-center pt-6 px-2">
+              <div className="w-12 h-12 rounded-2xl bg-brand-600 flex items-center justify-center mb-3">
+                <MessageSquare size={22} className="text-white" />
+              </div>
+              <p className="text-sm text-gray-700 dark:text-gray-200 font-medium">
+                {topicName ? `Ask me anything about ${topicName}` : 'Your AI study assistant'}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Definitions, exam traps, key numbers, or practice MCQs.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 mt-4">
+                {prompts.map(p => (
+                  <button
+                    key={p}
+                    onClick={() => send(p)}
+                    className="px-3 py-1.5 text-xs font-medium text-brand-600 bg-brand-50 dark:bg-brand-900/20 rounded-full hover:bg-brand-100 dark:hover:bg-brand-900/40 transition-colors"
+                  >
+                    {p}
+                  </button>
+                ))}
               </div>
             </div>
-          ))}
-          {streaming && messages[messages.length - 1]?.content === '' && (
+          )}
+
+          {messages.map((msg, i) => {
+            const isLastAssistant = msg.role === 'assistant' && i === messages.length - 1
+            return (
+              <div key={i} className={cn('flex gap-2 group', msg.role === 'user' && 'justify-end')}>
+                {msg.role === 'assistant' && (
+                  <div className="w-6 h-6 rounded-full bg-brand-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-white text-[9px] font-bold">AI</span>
+                  </div>
+                )}
+                <div className={cn('flex flex-col gap-1 max-w-[85%]', msg.role === 'user' && 'items-end')}>
+                  <div className={cn(
+                    'rounded-2xl px-3.5 py-2.5 text-sm',
+                    msg.role === 'user'
+                      ? 'bg-brand-600 text-white rounded-tr-sm'
+                      : 'bg-gray-100 dark:bg-[#1C2128] text-gray-900 dark:text-gray-100 rounded-tl-sm'
+                  )}>
+                    {msg.role === 'assistant' ? (
+                      <Markdown compact>{msg.content || '…'}</Markdown>
+                    ) : (
+                      <p>{msg.content}</p>
+                    )}
+                  </div>
+                  {/* Assistant actions — copy always, regenerate on the last reply */}
+                  {msg.role === 'assistant' && msg.content && (
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => copyMessage(msg.content, i)}
+                        aria-label="Copy reply"
+                        title="Copy reply"
+                        className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1C2128] transition-colors"
+                      >
+                        {copiedIdx === i ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+                      </button>
+                      {isLastAssistant && !streaming && (
+                        <button
+                          onClick={regenerate}
+                          aria-label="Regenerate reply"
+                          title="Regenerate reply"
+                          className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1C2128] transition-colors"
+                        >
+                          <RefreshCw size={13} />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+
+          {streaming && lastIsAssistant && messages[messages.length - 1]?.content === '' && (
             <div className="flex gap-2">
               <div className="w-6 h-6 rounded-full bg-brand-600 flex items-center justify-center flex-shrink-0">
                 <span className="text-white text-[9px] font-bold">AI</span>
@@ -194,19 +235,32 @@ export function ChatPanel({ open, onClose, topicId, topicName }: ChatPanelProps)
               ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-              placeholder="Ask about this topic…"
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
+              placeholder={topicName ? 'Ask about this topic…' : 'Ask anything…'}
               rows={1}
+              aria-label="Message"
               className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 resize-none focus:outline-none leading-relaxed max-h-32"
               style={{ fieldSizing: 'content' } as React.CSSProperties}
             />
-            <button
-              onClick={send}
-              disabled={!input.trim() || streaming}
-              className="flex-shrink-0 w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center hover:bg-brand-800 disabled:opacity-40 transition-colors"
-            >
-              <Send size={14} />
-            </button>
+            {streaming ? (
+              <button
+                onClick={stop}
+                aria-label="Stop generating"
+                title="Stop generating"
+                className="flex-shrink-0 w-8 h-8 rounded-lg bg-gray-300 dark:bg-[#30363D] text-gray-700 dark:text-gray-200 flex items-center justify-center hover:bg-gray-400 dark:hover:bg-[#40464D] transition-colors"
+              >
+                <Square size={12} className="fill-current" />
+              </button>
+            ) : (
+              <button
+                onClick={submit}
+                disabled={!input.trim()}
+                aria-label="Send message"
+                className="flex-shrink-0 w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center hover:bg-brand-800 disabled:opacity-40 transition-colors"
+              >
+                <Send size={14} />
+              </button>
+            )}
           </div>
           <p className="text-[10px] text-gray-400 text-center mt-1.5">Press Enter to send · Shift+Enter for newline</p>
         </div>

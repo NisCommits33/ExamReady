@@ -1,16 +1,16 @@
-# Graph Report - examready  (2026-06-28)
+# Graph Report - examready  (2026-07-01)
 
 ## Corpus Check
-- 190 files · ~72,356 words
+- 194 files · ~75,574 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 860 nodes · 2031 edges · 51 communities (44 shown, 7 thin omitted)
+- 897 nodes · 2125 edges · 48 communities (41 shown, 7 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 8 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `0e15f0ef`
+- Built from commit: `a4ccc766`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -60,13 +60,10 @@
 - [[_COMMUNITY_Community 42|Community 42]]
 - [[_COMMUNITY_Community 43|Community 43]]
 - [[_COMMUNITY_Community 46|Community 46]]
-- [[_COMMUNITY_Community 47|Community 47]]
 - [[_COMMUNITY_Community 48|Community 48]]
-- [[_COMMUNITY_Community 49|Community 49]]
-- [[_COMMUNITY_Community 50|Community 50]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `cn()` - 156 edges
+1. `cn()` - 159 edges
 2. `createClient()` - 65 edges
 3. `quotaGuard()` - 43 edges
 4. `logActivity()` - 42 edges
@@ -80,71 +77,71 @@
 ## Surprising Connections (you probably didn't know these)
 - `AdminUserPage()` --calls--> `getUserDetail()`  [INFERRED]
   src/app/(admin)/admin/users/[id]/page.tsx → src/lib/admin.ts
-- `AdminUserPage()` --calls--> `formatDate()`  [INFERRED]
-  src/app/(admin)/admin/users/[id]/page.tsx → src/lib/utils.ts
-- `AdminUserPage()` --calls--> `relativeDate()`  [INFERRED]
-  src/app/(admin)/admin/users/[id]/page.tsx → src/lib/utils.ts
 - `AppLayout()` --calls--> `getActiveExam()`  [INFERRED]
   src/app/(app)/layout.tsx → src/lib/exam.ts
 - `NumbersPage()` --calls--> `createClient()`  [EXTRACTED]
   src/app/(app)/numbers/page.tsx → src/lib/supabase/server.ts
+- `DashboardPage()` --calls--> `createClient()`  [EXTRACTED]
+  src/app/(app)/page.tsx → src/lib/supabase/server.ts
+- `TimetablePage()` --calls--> `createClient()`  [EXTRACTED]
+  src/app/(app)/timetable/page.tsx → src/lib/supabase/server.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (51 total, 7 thin omitted)
+## Communities (48 total, 7 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.07
-Nodes (76): AppLayout(), ARFFRedirect(), GET(), POST(), POST(), POST(), POST(), POST() (+68 more)
+Nodes (73): AppLayout(), ARFFRedirect(), GET(), POST(), POST(), POST(), POST(), POST() (+65 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.13
-Nodes (10): LoginForm(), Mode, CatalogExam, OnboardingWizard(), Path, Step, OnboardingPage(), BeforeInstallPromptEvent (+2 more)
+Cohesion: 0.25
+Nodes (9): AdminUsersClient(), COLUMNS, SortKey, AdminDashboardPage(), StatCard(), getUsersOverview(), fmtCost(), fmtTokens() (+1 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.15
-Nodes (17): ActiveMode, ARFFClient(), ActiveMode, GKClient(), Props, IQClient(), ScoreSparkline(), Props (+9 more)
+Cohesion: 0.22
+Nodes (11): ActiveMode, ActiveMode, Flashcards(), ScoreSparkline(), StudyDashboard(), FILTERS, Props, SortKey (+3 more)
 
 ### Community 3 - "Community 3"
 Cohesion: 0.04
 Nodes (45): dependencies, @anthropic-ai/sdk, @base-ui/react, class-variance-authority, clsx, date-fns, @google/genai, groq-sdk (+37 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.15
-Nodes (17): Props, ARFFMockExam(), ExamQuestion, Phase, Props, ARFFMockExamResults(), ExamResult, GradeResult (+9 more)
+Cohesion: 0.21
+Nodes (10): ARFFClient(), GKClient(), TopicReaderPage(), IQClient(), flattenTopic(), flattenTopics(), RawTopic, ProgressPage() (+2 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.12
-Nodes (16): AIDrill, AINote, AnnotationType, Difficulty, Enrollment, ExamConfig, FlashcardReview, IQAttempt (+8 more)
+Cohesion: 0.11
+Nodes (19): ActiveExam, AIDrill, AINote, AnnotationType, Difficulty, Enrollment, Exam, ExamConfig (+11 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.10
-Nodes (25): StatCard(), cn(), Card(), CardAction(), CardContent(), CardDescription(), CardFooter(), CardHeader() (+17 more)
+Cohesion: 0.11
+Nodes (23): cn(), Avatar(), AvatarBadge(), AvatarFallback(), AvatarGroup(), AvatarGroupCount(), AvatarImage(), Checkbox() (+15 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.21
-Nodes (20): AdminContentPage(), AdminAnalytics, AdminUserDetail, AdminUserView, AI_ACTIONS, buildUserMap(), computeStreak(), getAllSubtopicsBrief() (+12 more)
+Cohesion: 0.17
+Nodes (15): AdminGroupLayout(), AdminAnalytics, AdminUserDetail, AdminUserView, AI_ACTIONS, buildUserMap(), computeStreak(), getGlobalActivity() (+7 more)
 
 ### Community 8 - "Community 8"
 Cohesion: 0.09
 Nodes (21): aliases, components, hooks, lib, ui, utils, iconLibrary, menuAccent (+13 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.09
-Nodes (39): ChatPanel(), ChatPanelProps, Message, WeeklyReviewSection(), extractFile(), isTextFile(), readSourceFile(), readStream() (+31 more)
+Cohesion: 0.07
+Nodes (49): ChatPanel(), GENERAL_PROMPTS, TOPIC_PROMPTS, ChatActions, ChatActionsContext, ChatMessage, ChatProvider(), ChatStateContext (+41 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.10
 Nodes (19): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModules, jsx, lib, module (+11 more)
 
 ### Community 11 - "Community 11"
-Cohesion: 0.08
-Nodes (26): AdminShell(), NAV, titleFor(), AdminGroupLayout(), AnnouncementBanner(), BannerAnnouncement, TINT, BottomNav() (+18 more)
+Cohesion: 0.05
+Nodes (34): AdminShell(), NAV, titleFor(), LoginForm(), Mode, AnnouncementBanner(), BannerAnnouncement, TINT (+26 more)
 
 ### Community 12 - "Community 12"
-Cohesion: 0.08
-Nodes (24): DashboardPage(), DailyReview(), Props, DashboardClient(), Props, MetricGrid(), MetricGridProps, QuickActions() (+16 more)
+Cohesion: 0.09
+Nodes (35): DashboardPage(), ActivityFeed(), CountdownCard(), DailyReview(), Props, DashboardClient(), Props, MetricGrid() (+27 more)
 
 ### Community 13 - "Community 13"
 Cohesion: 0.11
@@ -155,40 +152,40 @@ Cohesion: 0.12
 Nodes (9): DropdownMenuCheckboxItem(), DropdownMenuContent(), DropdownMenuItem(), DropdownMenuLabel(), DropdownMenuRadioItem(), DropdownMenuSeparator(), DropdownMenuShortcut(), DropdownMenuSubContent() (+1 more)
 
 ### Community 15 - "Community 15"
-Cohesion: 0.38
-Nodes (5): Mode, NumbersClient(), Props, NumbersPage(), KeyNumber
+Cohesion: 0.15
+Nodes (10): COUNTS, DIFFS, GKDrillPanel(), Grounding, Phase, Props, Source, SubRef (+2 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.16
 Nodes (8): Button(), buttonVariants, DialogContent(), DialogDescription(), DialogFooter(), DialogHeader(), DialogOverlay(), DialogTitle()
 
 ### Community 17 - "Community 17"
-Cohesion: 0.09
-Nodes (25): AdminContentClient(), AdminUserActions(), Props, ROLES, Announcement, AnnouncementsClient(), LEVELS, BankRow (+17 more)
+Cohesion: 0.08
+Nodes (27): AdminContentClient(), AdminUserActions(), Props, ROLES, BankRow, McqBankClient(), Sub, SubtopicManager() (+19 more)
 
 ### Community 18 - "Community 18"
-Cohesion: 0.13
-Nodes (19): ActiveMode, IQClientProps, IQTypeGrid(), IQTypeGridProps, ARFF_CATEGORIES, CATEGORY_COLORS, EXAM_DATE, GK_CATEGORIES (+11 more)
+Cohesion: 0.07
+Nodes (36): ActiveMode, IQClientProps, IQDrillSession(), Phase, Props, Result, IQFigure(), isSvg() (+28 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.14
-Nodes (17): AdminActivityFeed(), GlobalActivityExplorer(), Bar, HBars(), MiniBars(), AdminAnalyticsPage(), fmtCost(), fmtTokens() (+9 more)
+Cohesion: 0.21
+Nodes (12): AdminActivityFeed(), GlobalActivityExplorer(), AdminUserPage(), fmtCost(), fmtTokens(), ACTION_META, actionMeta, AdminActivityItem (+4 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.16
-Nodes (13): POST(), Choice, CHOICES, Difficulty, DIFFS, DrillQuestion, McqRow, parseCsv() (+5 more)
+Cohesion: 0.15
+Nodes (14): POST(), Choice, CHOICES, Difficulty, DIFFS, DrillQuestion, JSON_TEMPLATE, McqRow (+6 more)
 
 ### Community 21 - "Community 21"
-Cohesion: 0.22
-Nodes (6): CountdownCard(), CountdownCardProps, ExamCountdown(), TimeLeft, ExamDateDialog(), Props
+Cohesion: 0.26
+Nodes (11): addDays(), cardKey(), INTERVALS, isDue(), nextOnKnown(), nextOnReview(), todayStr(), Card (+3 more)
 
 ### Community 22 - "Community 22"
-Cohesion: 0.23
-Nodes (12): addDays(), cardKey(), INTERVALS, isDue(), nextOnKnown(), nextOnReview(), todayStr(), Card (+4 more)
+Cohesion: 0.17
+Nodes (11): Architecture, Context, Files, Implementation, Key decisions (baked into the plan), Phase 1 — Vector store (Supabase migration), Phase 2 — Embedding + chunking helpers, Phase 3 — Ingestion triggers (+3 more)
 
 ### Community 23 - "Community 23"
-Cohesion: 0.30
-Nodes (8): AdminUsersClient(), COLUMNS, SortKey, AdminDashboardPage(), getUsersOverview(), fmtCost(), fmtTokens(), AdminUsersPage()
+Cohesion: 0.27
+Nodes (9): Props, Props, ARFFPracticeTab(), GradeResult, P2AnswerTab(), Phase, Props, P2Answer (+1 more)
 
 ### Community 24 - "Community 24"
 Cohesion: 0.33
@@ -199,20 +196,20 @@ Cohesion: 0.28
 Nodes (5): inter, metadata, viewport, ThemeProvider(), ServiceWorkerRegister()
 
 ### Community 26 - "Community 26"
-Cohesion: 0.15
-Nodes (15): useTopics(), DURATIONS, SessionLogSheet(), SessionLogSheetProps, Props, DURATIONS, SESSION_TYPES, SessionPlanSheet() (+7 more)
+Cohesion: 0.05
+Nodes (43): Announcement, AnnouncementsClient(), LEVELS, CountdownCardProps, useTopics(), getExamDate(), setExamDate(), Mode (+35 more)
 
 ### Community 27 - "Community 27"
-Cohesion: 0.18
-Nodes (8): COUNTS, DIFFS, GKDrillPanel(), Grounding, Phase, Props, Source, SubRef
+Cohesion: 0.24
+Nodes (8): ARFFMockExam(), ExamQuestion, Phase, ARFFMockExamResults(), ExamResult, GradeResult, Props, QuestionType
 
 ### Community 28 - "Community 28"
-Cohesion: 0.16
-Nodes (11): fmtTok(), ProfileClient(), Props, DayConfig, DayState, OFF_DEFAULT, Props, SHIFT_WINDOWS (+3 more)
+Cohesion: 0.36
+Nodes (7): Bar, HBars(), MiniBars(), AdminAnalyticsPage(), fmtCost(), fmtTokens(), getAnalytics()
 
 ### Community 29 - "Community 29"
-Cohesion: 0.36
-Nodes (6): saveDrillResult(), getExamDate(), setExamDate(), fetchSubtopics(), createClient(), DrillSection
+Cohesion: 0.32
+Nodes (6): RescueCard(), RescueCardProps, Props, Props, ScoreEntry, Topic
 
 ### Community 30 - "Community 30"
 Cohesion: 0.40
@@ -235,52 +232,40 @@ Cohesion: 0.50
 Nodes (3): Deploy on Vercel, Getting Started, Learn More
 
 ### Community 37 - "Community 37"
-Cohesion: 0.24
-Nodes (10): IQDrillSession(), Phase, Props, Result, IQFigure(), isSvg(), Props, sanitizeSvg() (+2 more)
+Cohesion: 0.25
+Nodes (7): Card(), CardAction(), CardContent(), CardDescription(), CardFooter(), CardHeader(), CardTitle()
 
 ### Community 43 - "Community 43"
-Cohesion: 0.29
-Nodes (7): POST(), assertSuperAdmin(), splitSourceSections(), cleanNames(), POST(), POST(), ROLES
+Cohesion: 0.21
+Nodes (15): AdminContentPage(), POST(), assertSuperAdmin(), getAllSubtopicsBrief(), getAllTopicsBrief(), getExamsOverview(), getSectionsBrief(), getShiftTypes() (+7 more)
 
 ### Community 46 - "Community 46"
 Cohesion: 0.19
 Nodes (6): Card(), DetailSkeleton(), ListSkeleton(), PageSkeleton(), Skeleton(), StatGridSkeleton()
 
-### Community 47 - "Community 47"
-Cohesion: 0.25
-Nodes (6): BankRow, COUNTS, DIFFS, GenQ, SubRef, OPENROUTER_MODELS
-
 ### Community 48 - "Community 48"
 Cohesion: 0.22
 Nodes (8): Admin Content — Data Flow Diagram, AI Generation Pipeline, Component → API → Database, File Map, Overview, Subtopic Creation Pipeline, Supabase Tables Touched, Token Usage Tracking
 
-### Community 49 - "Community 49"
-Cohesion: 0.14
-Nodes (16): TopicReaderPage(), flattenTopic(), flattenTopics(), RawTopic, coveragePct(), ProgressPage(), ProgressClient(), ProgressClientProps (+8 more)
-
-### Community 50 - "Community 50"
-Cohesion: 0.29
-Nodes (6): Avatar(), AvatarBadge(), AvatarFallback(), AvatarGroup(), AvatarGroupCount(), AvatarImage()
-
 ## Knowledge Gaps
-- **264 isolated node(s):** `$schema`, `style`, `rsc`, `tsx`, `config` (+259 more)
+- **279 isolated node(s):** `$schema`, `style`, `rsc`, `tsx`, `config` (+274 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `cn()` connect `Community 6` to `Community 1`, `Community 2`, `Community 4`, `Community 9`, `Community 11`, `Community 12`, `Community 14`, `Community 15`, `Community 16`, `Community 17`, `Community 18`, `Community 22`, `Community 23`, `Community 24`, `Community 26`, `Community 27`, `Community 28`, `Community 30`, `Community 36`, `Community 37`, `Community 46`, `Community 47`, `Community 49`, `Community 50`?**
-  _High betweenness centrality (0.215) - this node is a cross-community bridge._
-- **Why does `createClient()` connect `Community 0` to `Community 1`, `Community 2`, `Community 7`, `Community 43`, `Community 11`, `Community 12`, `Community 15`, `Community 49`, `Community 19`, `Community 20`?**
-  _High betweenness centrality (0.066) - this node is a cross-community bridge._
-- **Why does `createClient()` connect `Community 29` to `Community 1`, `Community 4`, `Community 37`, `Community 9`, `Community 11`, `Community 12`, `Community 15`, `Community 17`, `Community 21`, `Community 22`, `Community 26`, `Community 28`?**
+- **Why does `cn()` connect `Community 6` to `Community 1`, `Community 2`, `Community 7`, `Community 9`, `Community 11`, `Community 12`, `Community 14`, `Community 15`, `Community 16`, `Community 17`, `Community 18`, `Community 21`, `Community 23`, `Community 24`, `Community 26`, `Community 27`, `Community 30`, `Community 36`, `Community 37`, `Community 46`?**
+  _High betweenness centrality (0.213) - this node is a cross-community bridge._
+- **Why does `createClient()` connect `Community 0` to `Community 4`, `Community 7`, `Community 43`, `Community 12`, `Community 11`, `Community 19`, `Community 20`, `Community 26`?**
+  _High betweenness centrality (0.063) - this node is a cross-community bridge._
+- **Why does `createClient()` connect `Community 26` to `Community 9`, `Community 11`, `Community 12`, `Community 15`, `Community 18`, `Community 21`, `Community 23`, `Community 27`?**
   _High betweenness centrality (0.015) - this node is a cross-community bridge._
 - **What connects `$schema`, `style`, `rsc` to the rest of the system?**
-  _264 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _279 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.06895986895986896 - nodes in this community are weakly interconnected._
-- **Should `Community 1` be split into smaller, more focused modules?**
-  _Cohesion score 0.13157894736842105 - nodes in this community are weakly interconnected._
-- **Should `Community 2` be split into smaller, more focused modules?**
-  _Cohesion score 0.14624505928853754 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07199723087573555 - nodes in this community are weakly interconnected._
+- **Should `Community 3` be split into smaller, more focused modules?**
+  _Cohesion score 0.043478260869565216 - nodes in this community are weakly interconnected._
+- **Should `Community 5` be split into smaller, more focused modules?**
+  _Cohesion score 0.10526315789473684 - nodes in this community are weakly interconnected._

@@ -36,7 +36,7 @@ export async function POST(req: Request) {
         const subNames = String(subtopics ?? '').split('\n').map(s => s.trim().replace(/^[-*\d.)\s]+/, '').trim()).filter(Boolean)
         const { data: topic, error } = await service.from('topics').insert({
           exam_id: examId, section_id: sectionId, name: name.trim(), paper: paper ?? 2, section: section ?? 'B',
-          topic_number: String(topic_number).trim(), subsections: subNames, ai_priority: 5,
+          topic_number: String(topic_number).trim(), ai_priority: 5,
         }).select('id').single()
         if (error) throw error
         if (topic && subNames.length) {

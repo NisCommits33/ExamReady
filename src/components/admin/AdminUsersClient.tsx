@@ -64,7 +64,7 @@ export function AdminUsersClient({ users }: { users: AdminUserRow[] }) {
             <button
               key={c.key}
               onClick={() => toggleSort(c.key)}
-              aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+              aria-label={`Sort by ${c.label}${active ? (dir === 'asc' ? ', ascending' : ', descending') : ''}`}
               className={cn(
                 'flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide transition-colors hover:text-gray-600 dark:hover:text-gray-300',
                 c.numeric && 'justify-end',

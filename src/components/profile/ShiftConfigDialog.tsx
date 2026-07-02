@@ -79,7 +79,7 @@ export function ShiftConfigDialog({ open, onOpenChange }: Props) {
       ? await supabase.from('shifts').delete().eq('date', dateStr)
       : await supabase.from('shifts').upsert(
           { date: dateStr, type: cfg.state, study_start: cfg.start, study_end: cfg.end },
-          { onConflict: 'date' },
+          { onConflict: 'user_id,date' },
         )
     setPending(p => ({ ...p, [dateStr]: false }))
     if (error) toast.error('Could not update shift')

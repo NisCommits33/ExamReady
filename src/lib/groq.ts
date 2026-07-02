@@ -76,12 +76,12 @@ export async function groqText(messages: Message[], maxTokens = 4096, usageCtx?:
  * JSON: parses the model response as T. Uses response_format json_object
  * where supported, otherwise parses the raw text.
  */
-export async function groqJSON<T>(messages: Message[], usageCtx?: UsageCtx, opts?: { temperature?: number }): Promise<T> {
+export async function groqJSON<T>(messages: Message[], usageCtx?: UsageCtx, opts?: { temperature?: number; maxTokens?: number }): Promise<T> {
   const res = await groq.chat.completions.create({
     model: MODEL,
     messages,
     temperature: opts?.temperature ?? 0.2,
-    max_tokens: 4096,
+    max_tokens: opts?.maxTokens ?? 4096,
     response_format: { type: 'json_object' },
   })
 

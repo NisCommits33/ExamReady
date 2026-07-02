@@ -48,10 +48,11 @@ export function SubtopicManager({ topicId, topicName }: { topicId: string; topic
     setSelected(new Set())
     setLoading(false)
   }
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { load() }, [topicId])
 
   function toggleSel(id: string) {
-    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setSelected(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
   }
   async function deleteSelected() {
     const ids = [...selected]
@@ -202,7 +203,7 @@ export function SubtopicManager({ topicId, topicName }: { topicId: string; topic
               {proposed.map(n => {
                 const on = picked.has(n)
                 return (
-                  <button key={n} onClick={() => setPicked(p => { const s = new Set(p); s.has(n) ? s.delete(n) : s.add(n); return s })}
+                  <button key={n} onClick={() => setPicked(p => { const s = new Set(p); if (s.has(n)) s.delete(n); else s.add(n); return s })}
                     className={cn('text-[11px] px-2 py-1 rounded-full border transition-colors', on ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-300 dark:border-brand-700 text-brand-700 dark:text-brand-300' : 'border-gray-200 dark:border-[#30363D] text-gray-500')}>
                     {on && <Check size={10} className="inline mr-0.5" />}{n}
                   </button>

@@ -21,6 +21,8 @@ export function InstallPrompt({ className }: { className?: string }) {
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
+    // Client-only PWA capability detection on mount; these setStates are intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isStandalone()) { setInstalled(true); return }
 
     const onPrompt = (e: Event) => { e.preventDefault(); setDeferred(e as BeforeInstallPromptEvent) }

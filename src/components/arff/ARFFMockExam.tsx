@@ -106,7 +106,6 @@ export function ARFFMockExam({ topics, allScores, onBack }: Props) {
     setGradingIdx(0)
     const examResults: ExamResult[] = []
     const supabase = createClient()
-    const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
 
     for (let i = 0; i < examQs.length; i++) {
       setGradingIdx(i + 1)

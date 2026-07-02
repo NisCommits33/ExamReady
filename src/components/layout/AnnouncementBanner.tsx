@@ -16,6 +16,8 @@ export function AnnouncementBanner({ announcements }: { announcements: BannerAnn
   const [dismissed, setDismissed] = useState<string[]>([])
 
   useEffect(() => {
+    // Hydrate dismissed list from localStorage on mount (client-only).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     try { setDismissed(JSON.parse(localStorage.getItem('dismissed_announcements') ?? '[]')) } catch {}
   }, [])
 

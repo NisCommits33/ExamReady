@@ -38,7 +38,7 @@ export function McqBankClient({ exams, topics, subtopics }: { exams: AdminExam[]
   }
 
   function toggle(id: string) {
-    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setSelected(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
   }
   function toggleAll() {
     setSelected(prev => prev.size === rows.length ? new Set() : new Set(rows.map(r => r.id)))
@@ -60,6 +60,7 @@ export function McqBankClient({ exams, topics, subtopics }: { exams: AdminExam[]
     setRows([]); setSelected(new Set())
     toast.success('All questions deleted')
   }
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- async load on topic change
   useEffect(() => { loadList(topicId) }, [topicId])
 
   async function doImport() {

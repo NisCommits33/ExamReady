@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react'
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
+  // Client-only mount guard for next-themes hydration; the one post-mount setState is intentional.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), [])
   if (!mounted) return <div className="w-8 h-8" />
 

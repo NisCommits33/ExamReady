@@ -13,12 +13,14 @@ export async function POST(req: Request) {
   let topicContext = ''
   if (topicId) {
     const supabase = await createClient()
-    const [{ data: topic }, { data: note }] = await Promise.all([
-      supabase.from('topics').select('name,paper,section,subsections').eq('id', topicId).single(),
+    const [{ data: topic }, { data: note }, { data: subs }] = await Promise.all([
+      supabase.from('topics').select('name,paper,section').eq('id', topicId).single(),
       supabase.from('topic_notes').select('study_note').eq('topic_id', topicId).single(),
+      supabase.from('subtopics').select('name,sort_order').eq('topic_id', topicId).order('sort_order'),
     ])
     if (topic) {
-      topicContext = `\nCurrent topic: ${topic.name} (Paper ${topic.paper}, §${topic.section})\nSubsections: ${topic.subsections?.join(', ')}`
+      const subsections = (subs ?? []).map(s => s.name)
+      topicContext = `\nCurrent topic: ${topic.name} (Paper ${topic.paper}, §${topic.section})\nSubsections: ${subsections.join(', ')}`
       if (note?.study_note) topicContext += `\n\nStudy note context:\n${note.study_note.slice(0, 1200)}`
     }
   }

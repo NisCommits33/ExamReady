@@ -28,7 +28,7 @@ export function TodayPlan({ sessions, onLogSession }: TodayPlanProps) {
   return (
     <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-medium text-gray-900 dark:text-gray-100">Today's plan</h2>
+        <h2 className="text-sm font-medium text-gray-900 dark:text-gray-100">Today&apos;s plan</h2>
         <Link href="/timetable" className="text-xs text-brand-600 hover:text-brand-800 dark:hover:text-brand-400 transition-colors">Edit</Link>
       </div>
 

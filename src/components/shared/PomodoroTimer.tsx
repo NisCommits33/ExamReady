@@ -72,6 +72,7 @@ export function PomodoroTimer() {
           short: clampMinutes(parsed.short ?? DEFAULTS.short),
           long: clampMinutes(parsed.long ?? DEFAULTS.long),
         }
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate saved durations on mount
         setDurations(next)
         setSecondsLeft(next.work * 60)
       }

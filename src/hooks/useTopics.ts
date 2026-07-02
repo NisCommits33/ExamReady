@@ -16,6 +16,7 @@ export function useTopics() {
     setLoading(false)
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- async initial load; setState runs post-await
   useEffect(() => { load() }, [])
 
   async function updateStatus(id: string, status: Topic['status']) {

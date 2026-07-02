@@ -2,11 +2,7 @@ import { LoginForm } from '@/components/auth/LoginForm'
 import { Logo } from '@/components/ui/Logo'
 import { InstallPrompt } from '@/components/pwa/InstallPrompt'
 
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>
-}) {
+export default function LoginPage() {
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center bg-gray-100 px-4">
       {/* Logo */}

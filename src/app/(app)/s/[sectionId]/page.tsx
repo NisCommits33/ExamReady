@@ -23,7 +23,7 @@ export default async function SectionPage({ params }: { params: Promise<{ sectio
   const tkp = (keyPoints ?? []).filter(kp => topicIds.has(kp.topic_id))
 
   if (section.kind === 'mcq_study') {
-    return <GKClient topics={topics} topicKeyPoints={tkp} heading={section.name} />
+    return <GKClient topics={topics} topicKeyPoints={tkp} heading={section.name} sectionId={sectionId} />
   }
 
   if (section.kind === 'written') {
@@ -53,6 +53,7 @@ export default async function SectionPage({ params }: { params: Promise<{ sectio
       topics={topics}
       topicKeyPoints={tkp}
       heading={section.name}
+      sectionId={sectionId}
     />
   )
 }

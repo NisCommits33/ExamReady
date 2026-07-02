@@ -42,6 +42,7 @@ export function IQDrillSession({ type, onBack }: Props) {
   useEffect(() => {
     loadQuestions()
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount
   }, [])
 
   async function loadQuestions() {
@@ -128,7 +129,7 @@ export function IQDrillSession({ type, onBack }: Props) {
         avg_time_s: avgTime,
         total_attempted: total,
         last_drilled: today,
-      }, { onConflict: 'type' })
+      }, { onConflict: 'user_id,type' })
     }
   }
 

@@ -227,7 +227,7 @@ export function ProgressClient({ topics, p1Coverage, p2Coverage, overallReadines
             <p className="text-sm font-medium text-purple-900">Confidence calibration</p>
           </div>
           <p className="text-sm text-purple-800 leading-relaxed">
-            When you say <strong>Sure</strong>, you're right <strong>{sureCalibration}%</strong> of the time.
+            When you say <strong>Sure</strong>, you&apos;re right <strong>{sureCalibration}%</strong> of the time.
             {sureCalibration < 70 && ' Consider slowing down on questions you feel sure about.'}
             {sureCalibration >= 70 && ' Your confidence is well-calibrated.'}
           </p>

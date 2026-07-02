@@ -64,15 +64,15 @@ export async function getMonthlyUsage(
 }
 
 /**
- * Enforce the current user's monthly token allocation.
- * Returns a 429 response when over the cap, or null to allow the call
- * (also null for unlimited users or on any internal error — fail open).
+ * Gate an AI route: require a signed-in user (401) and enforce their monthly token allocation (429).
+ * Returns a response to short-circuit with, or null to allow the call. Unauthenticated requests are
+ * rejected so anonymous callers can't trigger paid model calls; quota errors fail open.
  */
 export async function quotaGuard(): Promise<NextResponse | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
     const { data: profile } = await supabase.from('profiles').select('token_allocation').eq('id', user.id).maybeSingle()
     const allocation = profile?.token_allocation ?? null
     if (!allocation || allocation <= 0) return null // unlimited

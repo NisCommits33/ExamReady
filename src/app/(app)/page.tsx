@@ -12,13 +12,12 @@ export default async function DashboardPage() {
 
   const today = new Date().toISOString().split('T')[0]
 
-  const [shift, planned, sessions, topics, report, flags, activity, dueCards] = await Promise.all([
+  const [shift, planned, sessions, topics, report, activity, dueCards] = await Promise.all([
     supabase.from('shifts').select('type,study_start,study_end,shift_types(study_start,study_end)').eq('date', today).maybeSingle(),
     supabase.from('planned_sessions').select('*,topics(name,paper,section)').eq('scheduled_date', today).order('slot_time'),
     supabase.from('sessions').select('duration_mins,created_at'),
     supabase.from('topics').select('id,name,paper,ai_priority,user_topic_progress(status,is_flagged)'),
     supabase.from('weekly_reports').select('*').order('week_start', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('topic_flags').select('topic_id,topics(name)').eq('resolved', false).limit(5),
     supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(6),
     supabase.from('flashcard_reviews').select('card_key', { count: 'exact', head: true }).lte('due_date', today),
   ])

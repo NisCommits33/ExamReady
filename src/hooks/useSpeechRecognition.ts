@@ -35,6 +35,8 @@ export function useSpeechRecognition(onFinal: (text: string) => void) {
     const Ctor = (window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor })
       .SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: SpeechRecognitionCtor }).webkitSpeechRecognition
     if (!Ctor) return
+    // Client-only feature detection on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSupported(true)
     const rec = new Ctor()
     rec.continuous = true

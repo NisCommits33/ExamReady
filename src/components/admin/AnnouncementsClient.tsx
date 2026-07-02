@@ -32,6 +32,7 @@ export function AnnouncementsClient() {
     setItems((data ?? []) as Announcement[])
     setLoading(false)
   }
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- async initial load
   useEffect(() => { load() }, [])
 
   async function create() {

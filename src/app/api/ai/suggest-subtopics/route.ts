@@ -6,8 +6,6 @@ import { logActivity } from '@/lib/activity'
 import { getExamPromptContext } from '@/lib/exam'
 import { getTopicSource, getMcqGrounding, sourceGroundingBlock, type GroundingMode } from '@/lib/source'
 
-type Mode = 'headings' | GroundingMode
-
 export async function POST(req: Request) {
   const { topicId, topicName, mode } = await req.json()
   if (!topicId) return NextResponse.json({ error: 'Missing topicId' }, { status: 400 })

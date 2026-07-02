@@ -60,6 +60,7 @@ export function TopicMcqManager({ topicId, topicName }: { topicId: string; topic
     setSubtopics(subs)
     setSubtopicId(prev => (prev && !subs.some(s => s.id === prev) ? '' : prev))
   }
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { load(); loadSubtopics() }, [topicId])
 
   async function doImport() {
@@ -190,7 +191,7 @@ export function TopicMcqManager({ topicId, topicName }: { topicId: string; topic
             {genQs.map((q, i) => {
               const on = genPick.has(i)
               return (
-                <button key={i} onClick={() => setGenPick(p => { const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s })}
+                <button key={i} onClick={() => setGenPick(p => { const s = new Set(p); if (s.has(i)) s.delete(i); else s.add(i); return s })}
                   className="w-full flex items-start gap-2 text-left text-[11px]">
                   <span className={cn('mt-0.5 w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0', on ? 'bg-brand-600 border-brand-600' : 'border-gray-300')}>
                     {on && <Check size={9} className="text-white" />}
@@ -224,7 +225,7 @@ export function TopicMcqManager({ topicId, topicName }: { topicId: string; topic
             <div className="space-y-1">
               {rows.map(r => (
                 <div key={r.id} className="flex items-start gap-2 text-[11px]">
-                  <input type="checkbox" checked={selected.has(r.id)} onChange={() => setSelected(p => { const s = new Set(p); s.has(r.id) ? s.delete(r.id) : s.add(r.id); return s })} className="mt-0.5 accent-brand-600 flex-shrink-0" />
+                  <input type="checkbox" checked={selected.has(r.id)} onChange={() => setSelected(p => { const s = new Set(p); if (s.has(r.id)) s.delete(r.id); else s.add(r.id); return s })} className="mt-0.5 accent-brand-600 flex-shrink-0" />
                   <span className="text-gray-700 dark:text-gray-300 flex-1 truncate">{r.question}</span>
                   <span className="text-gray-400 flex-shrink-0">{r.correct} · {r.difficulty}{r.subtopic_id ? ` · ${subName(r.subtopic_id)}` : ''}</span>
                   <button onClick={() => remove(r.id)} className="text-gray-300 hover:text-red-500 flex-shrink-0"><Trash2 size={11} /></button>

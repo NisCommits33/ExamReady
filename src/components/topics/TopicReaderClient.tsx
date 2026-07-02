@@ -4,7 +4,6 @@ import { useState, useRef } from 'react'
 import { ArrowLeft, MessageSquare, Plus, Upload, Loader2, Pencil } from 'lucide-react'
 import { useChatActions } from '@/components/ai/ChatProvider'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { StatusToggle } from '@/components/shared/StatusToggle'
 import { PaperBadge } from '@/components/shared/PaperBadge'
 import { LoadingStream, StreamingSkeleton } from '@/components/shared/LoadingStream'
@@ -32,7 +31,6 @@ interface Props {
 }
 
 export function TopicReaderClient({ topic, note: initialNote, annotations: initialAnnotations }: Props) {
-  const router = useRouter()
   const hasSource = !!initialNote?.official_source
   const hasUserSource = !!initialNote?.official_source_2
   const [tab, setTab] = useState<Tab>(hasSource ? 'source' : hasUserSource ? 'your_source' : 'note')

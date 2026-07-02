@@ -36,7 +36,9 @@ export function SessionPlanSheet({ open, onOpenChange, onSaved, editSession, def
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
+    // Sync form fields from the session being edited when it changes.
     if (editSession) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSessionType(editSession.session_type)
       setDate(editSession.scheduled_date)
       setTopicId(editSession.topic_id ?? '')

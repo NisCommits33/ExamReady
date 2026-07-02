@@ -34,6 +34,8 @@ export function DrillItTab({ topic, note }: { topic: Topic; note: TopicNote | nu
 
   useEffect(() => {
     let active = true
+    // Reset the load guard when switching topics before the async fetch resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStreakLoaded(false)
     async function load() {
       const supabase = createClient()

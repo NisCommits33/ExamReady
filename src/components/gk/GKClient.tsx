@@ -8,6 +8,7 @@ import { StudyDashboard } from '@/components/shared/StudyDashboard'
 import { StudySearchFilter, type StatusFilter, type SortKey } from '@/components/shared/StudySearchFilter'
 import { Flashcards } from '@/components/shared/Flashcards'
 import { GKDrillPanel } from './GKDrillPanel'
+import { AddTopicPanel } from '@/components/topics/AddTopicPanel'
 import type { Topic, TopicStatus } from '@/types/database'
 
 type ActiveMode = 'topics' | 'flashcards'
@@ -16,9 +17,10 @@ interface Props {
   topics: Topic[]
   topicKeyPoints: { topic_id: string; key_points: string | null }[]
   heading?: string
+  sectionId?: string
 }
 
-export function GKClient({ topics: initialTopics, topicKeyPoints, heading }: Props) {
+export function GKClient({ topics: initialTopics, topicKeyPoints, heading, sectionId: sectionIdProp }: Props) {
   const [topics, setTopics] = useState(initialTopics)
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null)
   const [activeMode, setActiveMode] = useState<ActiveMode>('topics')
@@ -27,7 +29,7 @@ export function GKClient({ topics: initialTopics, topicKeyPoints, heading }: Pro
   const [sortBy, setSortBy] = useState<SortKey>('default')
   const [mixedOpen, setMixedOpen] = useState(false)
 
-  const sectionId = topics.find(t => t.section_id)?.section_id ?? null
+  const sectionId = sectionIdProp ?? topics.find(t => t.section_id)?.section_id ?? null
 
   const filteredTopics = useMemo(() => {
     let t = [...topics]
@@ -99,6 +101,11 @@ export function GKClient({ topics: initialTopics, topicKeyPoints, heading }: Pro
       {activeMode === 'topics' && (
         <>
           <StudyDashboard topics={topics} scores={[]} totalAttempts={0} onSelectTopic={id => setSelectedTopicId(id)} />
+          {sectionId && (
+            <div className="flex justify-end mb-3">
+              <AddTopicPanel sectionId={sectionId} sectionName={heading} onCreated={created => setTopics(prev => [...prev, ...created.map(c => ({ id: c.id, name: c.name, topic_number: c.topic_number, status: 'not_started', section_id: sectionId } as unknown as Topic))])} />
+            </div>
+          )}
           <StudySearchFilter search={search} onSearchChange={setSearch} statusFilter={statusFilter} onStatusFilterChange={setStatusFilter} sortBy={sortBy} onSortChange={setSortBy} />
           <div className="space-y-2">
             {filteredTopics.map(t => (

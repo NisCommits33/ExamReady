@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     const supabase = await createClient()
     const daysLeft = daysToExam()
 
-    const [{ data: topic }, { data: sessions }, { data: shifts }] = await Promise.all([
+    const [{ data: topic }, { data: sessions }, { data: shifts }, { data: subs }] = await Promise.all([
       supabase.from('topics').select('*').eq('id', topicId).single(),
       supabase.from('sessions').select('date,duration_mins').eq('topic_id', topicId),
       supabase
@@ -23,9 +23,11 @@ export async function POST(req: Request) {
         .select('date,type,shift_types(study_start,study_end)')
         .gte('date', format(new Date(), 'yyyy-MM-dd'))
         .lte('date', format(addDays(new Date(), 5), 'yyyy-MM-dd')),
+      supabase.from('subtopics').select('name,sort_order').eq('topic_id', topicId).order('sort_order'),
     ])
 
     if (!topic) return NextResponse.json({ error: 'Topic not found' }, { status: 404 })
+    const subsections = (subs ?? []).map(s => s.name)
 
     // Gemini handles multi-step reasoning for the rescue note
     const rescueNote = await geminiText(
@@ -34,7 +36,7 @@ Create a focused rescue note for a topic with only ${daysLeft} days remaining.
 Be concise, exam-focused, and include specific numbers/thresholds.`,
       `Topic: ${topic.name}
 Paper ${topic.paper}, Section ${topic.section}
-Subsections: ${topic.subsections.join(', ')}
+Subsections: ${subsections.join(', ')}
 Sessions completed: ${sessions?.length ?? 0}
 Days remaining: ${daysLeft}
 

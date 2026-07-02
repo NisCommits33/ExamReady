@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { BookOpen, Brain, Layers } from 'lucide-react'
+import { BookOpen, Brain, Layers, Shuffle, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { IQTypeGrid } from './IQTypeGrid'
 import { IQDrillSession } from './IQDrillSession'
 import { TopicDetail } from '@/components/shared/TopicDetail'
 import { Flashcards } from '@/components/shared/Flashcards'
+import { AddTopicPanel } from '@/components/topics/AddTopicPanel'
 import { IQ_QUESTION_TYPES } from '@/lib/constants'
 import type { IQStats, IQType, Topic, TopicStatus } from '@/types/database'
 
@@ -20,9 +21,10 @@ interface IQClientProps {
   topics: Topic[]
   topicKeyPoints: { topic_id: string; key_points: string | null }[]
   heading?: string
+  sectionId?: string
 }
 
-export function IQClient({ stats, totalAttempted, avgAccuracy, avgTime, topics: initialTopics, topicKeyPoints, heading }: IQClientProps) {
+export function IQClient({ stats, totalAttempted, avgAccuracy, avgTime, topics: initialTopics, topicKeyPoints, heading, sectionId }: IQClientProps) {
   const [topics, setTopics] = useState(initialTopics)
   const [activeMode, setActiveMode] = useState<ActiveMode>('drills')
   const [selectedType, setSelectedType] = useState<IQType | 'random' | null>(null)
@@ -68,28 +70,40 @@ export function IQClient({ stats, totalAttempted, avgAccuracy, avgTime, topics: 
 
       {activeMode === 'drills' && (
         <>
-          <div className="grid grid-cols-3 gap-3 mb-5">
-            <StatCard label="Accuracy" value={totalAttempted > 0 ? `${avgAccuracy}%` : '—'} />
-            <StatCard label="Avg / Q" value={avgTime > 0 ? `${avgTime}s` : '—'} />
-            <StatCard label="Drilled" value={totalAttempted.toString()} />
+          {/* Hero: overall accuracy + primary drill CTA */}
+          <div className="rounded-2xl border border-gray-200 dark:border-[#30363D] bg-gradient-to-br from-brand-50 to-white dark:from-brand-900/20 dark:to-[#161B22] p-5 mb-4">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Overall accuracy</p>
+                <p className="text-4xl font-semibold text-gray-900 dark:text-gray-100 tabular-nums leading-tight">
+                  {totalAttempted > 0 ? `${avgAccuracy}%` : '—'}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">{totalAttempted} drilled · {avgTime > 0 ? `${avgTime}s` : '—'} avg</p>
+              </div>
+              <button onClick={() => setSelectedType('random')} className="flex-shrink-0 flex items-center gap-1.5 px-4 py-3 bg-brand-600 text-white text-sm font-medium rounded-xl hover:bg-brand-800 transition-colors active:scale-[0.98]">
+                <Shuffle size={15} /> Random 10
+              </button>
+            </div>
           </div>
 
           {weakestLabel && (
-            <div className="bg-warning-50 border border-warning-400/30 rounded-xl px-4 py-3 mb-4 text-xs text-warning-800">
-              Weakest type: <strong>{weakestLabel}</strong> — focus here next
-            </div>
+            <button onClick={() => weakestStat && setSelectedType(weakestStat.type as IQType)} className="w-full flex items-center gap-2 bg-warning-50 dark:bg-warning-900/15 border border-warning-400/30 rounded-xl px-4 py-3 mb-5 text-xs text-warning-800 dark:text-warning-300 hover:bg-warning-100 dark:hover:bg-warning-900/25 transition-colors text-left">
+              <AlertTriangle size={14} className="flex-shrink-0" />
+              <span>Weakest type: <strong>{weakestLabel}</strong> — tap to drill it now</span>
+            </button>
           )}
 
           <IQTypeGrid stats={stats} onSelectType={setSelectedType} />
-
-          <button onClick={() => setSelectedType('random')} className="mt-4 w-full py-3.5 bg-brand-600 text-white text-sm font-medium rounded-xl hover:bg-brand-800 transition-colors active:scale-[0.98]">
-            Random mix · 10 Qs
-          </button>
         </>
       )}
 
       {activeMode === 'topics' && (
         <div className="space-y-2">
+          {sectionId && (
+            <div className="flex justify-end mb-1">
+              <AddTopicPanel sectionId={sectionId} sectionName={heading} onCreated={created => setTopics(prev => [...prev, ...created.map(c => ({ id: c.id, name: c.name, topic_number: c.topic_number, status: 'not_started' } as unknown as Topic))])} />
+            </div>
+          )}
           {topics.map(t => (
             <button key={t.id} onClick={() => setSelectedTopicId(t.id)} className={cn('w-full flex items-center justify-between px-4 py-3.5 bg-white dark:bg-[#161B22] border rounded-xl text-left transition-all duration-150', t.has_user_source ? 'border-violet-300 dark:border-violet-700 border-l-[3px] border-l-violet-400 dark:border-l-violet-500 hover:border-violet-400' : 'border-gray-200 dark:border-[#30363D] hover:border-brand-400 dark:hover:border-brand-700')}>
               <div className="flex-1 min-w-0">
@@ -111,15 +125,6 @@ export function IQClient({ stats, totalAttempted, avgAccuracy, avgTime, topics: 
       )}
 
       {activeMode === 'flashcards' && <Flashcards topics={topics} topicKeyPoints={topicKeyPoints} />}
-    </div>
-  )
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl p-4 text-center">
-      <p className="text-xl font-medium text-gray-900 dark:text-gray-100 tabular-nums">{value}</p>
-      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{label}</p>
     </div>
   )
 }

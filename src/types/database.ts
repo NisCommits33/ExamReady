@@ -87,7 +87,19 @@ export interface UserAnnotation {
   topic_id: string
   content: string
   annotation_type: AnnotationType
+  /** Highlight colour key (see HIGHLIGHT_COLORS). Null for plain notes. */
+  color: string | null
+  /** Placement metadata for highlights: reading tab, nth occurrence of `content`, and optional subtopic scope. */
+  meta: { tab?: string; nth?: number; subtopicId?: string | null }
   created_at: string
+}
+
+/** Per-user reading position within a topic, for "continue where you left off". */
+export interface ReadingPosition {
+  /** Reader tab key the user was last on (e.g. 'note', 'source'). */
+  last_read_tab: string | null
+  /** Scroll offset as a fraction (0–1) of the scrollable height. */
+  last_read_scroll: number | null
 }
 
 export interface P2Answer {

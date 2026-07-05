@@ -5,18 +5,37 @@ type ServerClient = Awaited<ReturnType<typeof createClient>>
 const MAX_SOURCE_CHARS = 6000
 
 /**
- * Loads the source material for a topic, combining the user-uploaded source
- * (`official_source_2`) and the original `official_source`, with the user's
+ * Loads the source material for a topic, combining the caller's own per-user source
+ * (`user_topic_sources.content`) and the admin `official_source`, with the user's
  * source prioritised first. Returns null if neither exists.
+ *
+ * `includeUserSource` must be false when called with a service-role client (RLS is
+ * bypassed, so the per-user table isn't scoped to a single user).
  */
-export async function getTopicSource(supabase: ServerClient, topicId: string): Promise<string | null> {
-  const { data } = await supabase
+export async function getTopicSource(
+  supabase: ServerClient,
+  topicId: string,
+  opts?: { includeUserSource?: boolean },
+): Promise<string | null> {
+  const includeUserSource = opts?.includeUserSource ?? true
+
+  let userContent: string | null = null
+  if (includeUserSource) {
+    const { data } = await supabase
+      .from('user_topic_sources')
+      .select('content')
+      .eq('topic_id', topicId)
+      .maybeSingle()
+    userContent = data?.content ?? null
+  }
+
+  const { data: notes } = await supabase
     .from('topic_notes')
-    .select('official_source,official_source_2')
+    .select('official_source')
     .eq('topic_id', topicId)
     .maybeSingle()
 
-  const combined = [data?.official_source_2, data?.official_source]
+  const combined = [userContent, notes?.official_source]
     .map(s => s?.trim())
     .filter(Boolean)
     .join('\n\n---\n\n')

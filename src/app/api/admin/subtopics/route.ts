@@ -45,8 +45,8 @@ export async function POST(req: Request) {
       case 'splitFromSource': {
         const { topicId, replace } = body
         if (!topicId) return NextResponse.json({ error: 'Missing topicId' }, { status: 400 })
-        const { data: notes } = await service.from('topic_notes').select('official_source,official_source_2').eq('topic_id', topicId).maybeSingle()
-        const src = [notes?.official_source_2, notes?.official_source].map(s => s?.trim()).filter(Boolean).join('\n\n')
+        const { data: notes } = await service.from('topic_notes').select('official_source').eq('topic_id', topicId).maybeSingle()
+        const src = notes?.official_source?.trim() ?? ''
         if (!src) return NextResponse.json({ error: 'This topic has no uploaded source to split' }, { status: 400 })
         const sections = splitSourceSections(src)
         if (sections.length === 0) return NextResponse.json({ error: 'No headings found in the source' }, { status: 400 })

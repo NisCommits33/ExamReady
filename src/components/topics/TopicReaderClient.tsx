@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { ArrowLeft, MessageSquare, Plus, Upload, Loader2, Pencil } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { ArrowLeft, MessageSquare, Plus, Upload, Loader2, Pencil, BookOpenText, Trash2, X } from 'lucide-react'
 import { useChatActions } from '@/components/ai/ChatProvider'
 import Link from 'next/link'
 import { StatusToggle } from '@/components/shared/StatusToggle'
@@ -20,20 +20,27 @@ import { SourceMeta } from '@/components/shared/SourceMeta'
 import { RecallTab } from '@/components/topics/RecallTab'
 import { ExplainTab } from '@/components/topics/ExplainTab'
 import { DrillItTab } from '@/components/topics/DrillItTab'
-import type { Topic, TopicNote, UserAnnotation, TopicStatus } from '@/types/database'
+import { HIGHLIGHT_COLORS, HL_MARK_SELECTOR, applyHighlights, clearHighlights, describeSelection, type StoredHighlight } from '@/lib/highlight'
+import type { Topic, TopicNote, UserAnnotation, TopicStatus, ReadingPosition } from '@/types/database'
 
 type Tab = 'source' | 'your_source' | 'note' | 'keypoints' | 'tips' | 'recall' | 'explain' | 'drill'
+
+/** Tabs whose content is plain reading text and therefore highlightable. */
+const READING_TABS = new Set<Tab>(['source', 'your_source', 'note', 'keypoints', 'tips'])
+
+/** Floating action popover anchored to a text selection or an existing highlight. */
+interface Popover { x: number; y: number; kind: 'create' | 'edit'; hlId?: string }
 
 interface Props {
   topic: Topic
   note: TopicNote | null
   annotations: UserAnnotation[]
+  resume: ReadingPosition | null
 }
 
-export function TopicReaderClient({ topic, note: initialNote, annotations: initialAnnotations }: Props) {
+export function TopicReaderClient({ topic, note: initialNote, annotations: initialAnnotations, resume }: Props) {
   const hasSource = !!initialNote?.official_source
-  const hasUserSource = !!initialNote?.official_source_2
-  const [tab, setTab] = useState<Tab>(hasSource ? 'source' : hasUserSource ? 'your_source' : 'note')
+  const [tab, setTab] = useState<Tab>(hasSource ? 'source' : 'note')
   const [note, setNote] = useState<TopicNote | null>(initialNote)
   const [annotations, setAnnotations] = useState(initialAnnotations)
   const [status, setStatus] = useState<TopicStatus>(topic.status)
@@ -45,12 +52,27 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
   const [showAnnotation, setShowAnnotation] = useState(false)
   const readerRef = useRef<HTMLDivElement>(null)
 
-  // User-uploaded source ("Your source" tab)
+  // Highlighting + resume-reading
+  const [popover, setPopover] = useState<Popover | null>(null)
+  const canResume = !!resume && READING_TABS.has((resume.last_read_tab ?? '') as Tab) && (resume.last_read_scroll ?? 0) > 0.05
+  const [showResume, setShowResume] = useState(canResume)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // User-uploaded source ("Your source" tab) — per-user, from user_topic_sources
+  const [userSource, setUserSource] = useState<string | null>(null)
   const [editingSource, setEditingSource] = useState(false)
-  const [sourceDraft, setSourceDraft] = useState(initialNote?.official_source_2 ?? '')
+  const [sourceDraft, setSourceDraft] = useState('')
   const [uploadingSource, setUploadingSource] = useState(false)
   const [savingSource, setSavingSource] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Load the current user's own source for this topic.
+  useEffect(() => {
+    let active = true
+    createClient().from('user_topic_sources').select('content').eq('topic_id', topic.id).maybeSingle()
+      .then(({ data }) => { if (active) setUserSource(data?.content ?? null) })
+    return () => { active = false }
+  }, [topic.id])
 
   const tabs: { key: Tab; label: string }[] = [
     ...(hasSource ? [{ key: 'source' as Tab, label: 'Official source' }] : []),
@@ -84,14 +106,14 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
     setSavingSource(true)
     const value = sourceDraft.trim()
     const supabase = createClient()
-    const { error } = await supabase.from('topic_notes').upsert({
+    const { error } = await supabase.from('user_topic_sources').upsert({
       topic_id: topic.id,
-      official_source_2: value || null,
+      content: value || null,
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'topic_id' })
+    }, { onConflict: 'user_id,topic_id' })
     setSavingSource(false)
     if (error) { toast.error('Failed to save source'); return }
-    setNote(prev => ({ ...(prev ?? {} as TopicNote), official_source_2: value || null }))
+    setUserSource(value || null)
     setEditingSource(false)
     toast.success('Source saved')
   }
@@ -174,6 +196,121 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
     }
   }
 
+  // ---- Resume reading: persist tab + scroll fraction as the user reads ----
+  const saveProgress = useCallback((t: Tab, scroll: number) => {
+    const supabase = createClient()
+    void supabase.from('user_topic_progress').upsert(
+      { topic_id: topic.id, last_read_tab: t, last_read_scroll: scroll },
+      { onConflict: 'user_id,topic_id' },
+    )
+  }, [topic.id])
+
+  useEffect(() => {
+    if (!READING_TABS.has(tab)) return
+    const onScroll = () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      saveTimer.current = setTimeout(() => {
+        const max = document.documentElement.scrollHeight - window.innerHeight
+        const frac = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0
+        saveProgress(tab, frac)
+      }, 700)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+  }, [tab, saveProgress])
+
+  function continueReading() {
+    const target = (resume?.last_read_tab ?? 'note') as Tab
+    setTab(target)
+    setShowResume(false)
+    // Wait for the target tab's content to render before restoring scroll.
+    setTimeout(() => {
+      const max = document.documentElement.scrollHeight - window.innerHeight
+      window.scrollTo({ top: (resume?.last_read_scroll ?? 0) * max, behavior: 'smooth' })
+    }, 90)
+  }
+
+  // ---- Highlighting: re-apply stored highlights whenever the tab or content changes ----
+  useEffect(() => {
+    const root = readerRef.current
+    if (!root) return
+    if (!READING_TABS.has(tab)) { clearHighlights(root); return }
+    const dark = document.documentElement.classList.contains('dark')
+    const hls: StoredHighlight[] = annotations
+      .filter(a => a.annotation_type === 'highlight' && (a.meta?.tab ?? 'note') === tab)
+      .map(a => ({ id: a.id, text: a.content, nth: a.meta?.nth ?? 0, color: a.color }))
+    applyHighlights(root, hls, dark)
+  }, [tab, annotations, note, generating, extracting])
+
+  // Close the popover on scroll or an outside click.
+  useEffect(() => {
+    if (!popover) return
+    const close = () => setPopover(null)
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest?.('[data-hl-popover]')) setPopover(null)
+    }
+    window.addEventListener('scroll', close, { passive: true })
+    document.addEventListener('mousedown', onDown)
+    return () => {
+      window.removeEventListener('scroll', close)
+      document.removeEventListener('mousedown', onDown)
+    }
+  }, [popover])
+
+  function onReaderMouseUp(e: React.MouseEvent) {
+    if (!READING_TABS.has(tab)) return
+    const mark = (e.target as HTMLElement).closest?.(HL_MARK_SELECTOR) as HTMLElement | null
+    if (mark) {
+      const r = mark.getBoundingClientRect()
+      setPopover({ x: r.left + r.width / 2, y: r.top, kind: 'edit', hlId: mark.getAttribute('data-hl-id') ?? undefined })
+      return
+    }
+    const sel = window.getSelection()
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !readerRef.current?.contains(sel.anchorNode)) {
+      setPopover(null)
+      return
+    }
+    const r = sel.getRangeAt(0).getBoundingClientRect()
+    setPopover({ x: r.left + r.width / 2, y: r.top, kind: 'create' })
+  }
+
+  async function addHighlight(colorKey: string) {
+    const root = readerRef.current
+    if (!root) return setPopover(null)
+    const desc = describeSelection(root)
+    if (!desc) return setPopover(null)
+    const supabase = createClient()
+    const { data } = await supabase.from('user_annotations').insert({
+      topic_id: topic.id,
+      content: desc.text,
+      annotation_type: 'highlight',
+      color: colorKey,
+      meta: { tab, nth: desc.nth },
+    }).select().single()
+    if (data) setAnnotations(prev => [data as UserAnnotation, ...prev])
+    window.getSelection()?.removeAllRanges()
+    setPopover(null)
+  }
+
+  async function removeHighlight(id: string) {
+    const supabase = createClient()
+    await supabase.from('user_annotations').delete().eq('id', id)
+    setAnnotations(prev => prev.filter(a => a.id !== id))
+    setPopover(null)
+  }
+
+  async function recolorHighlight(id: string, colorKey: string) {
+    setAnnotations(prev => prev.map(a => (a.id === id ? { ...a, color: colorKey } : a)))
+    setPopover(null)
+    const supabase = createClient()
+    await supabase.from('user_annotations').update({ color: colorKey }).eq('id', id)
+  }
+
+  const notes = annotations.filter(a => a.annotation_type === 'note')
+
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
@@ -195,6 +332,31 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
         <StatusToggle value={status} onChange={handleStatusChange} size="sm" />
       </div>
 
+      {/* Continue where you left off */}
+      {showResume && (
+        <button
+          onClick={continueReading}
+          className="w-full mb-4 flex items-center justify-between gap-3 px-4 py-3 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-xl text-left hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-colors active:scale-[0.99] group"
+        >
+          <div className="flex items-center gap-2.5">
+            <BookOpenText size={18} className="text-brand-600 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-brand-800 dark:text-brand-200">Continue where you left off</p>
+              <p className="text-xs text-brand-600/80 dark:text-brand-300/80">Jump back to your last spot in this topic</p>
+            </div>
+          </div>
+          <span
+            role="button"
+            tabIndex={-1}
+            onClick={(e) => { e.stopPropagation(); setShowResume(false) }}
+            className="p-1 rounded-md text-brand-500/70 hover:text-brand-700 hover:bg-brand-200/50 dark:hover:bg-brand-800/50 transition-colors"
+            aria-label="Dismiss"
+          >
+            <X size={15} />
+          </span>
+        </button>
+      )}
+
       {/* Tabs */}
       <div className="flex border-b border-gray-200 dark:border-[#30363D] mb-5 overflow-x-auto scrollbar-none">
         {tabs.map(t => {
@@ -211,7 +373,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
               )}
             >
               {t.label}
-              {t.key === 'your_source' && note?.official_source_2 && (
+              {t.key === 'your_source' && userSource && (
                 <span className="w-1.5 h-1.5 rounded-full bg-violet-400" title="You added your own source" />
               )}
               {isLoadingTab && (
@@ -223,7 +385,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
       </div>
 
       {/* Tab content */}
-      <div ref={readerRef}>
+      <div ref={readerRef} onMouseUp={onReaderMouseUp}>
         {/* Official source */}
         {tab === 'source' && note?.official_source && (
           <div>
@@ -239,18 +401,18 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
         {/* Your source — user-uploaded / pasted */}
         {tab === 'your_source' && (
           <div>
-            {!editingSource && note?.official_source_2 ? (
+            {!editingSource && userSource ? (
               <div>
                 <div className="mb-4 flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-[#1C2128] border border-gray-200 dark:border-[#30363D] rounded-lg">
                   <span className="text-xs text-gray-500 dark:text-gray-400">Your own source material — used to ground AI notes and MCQs.</span>
                   <button
-                    onClick={() => { setSourceDraft(note.official_source_2 ?? ''); setEditingSource(true) }}
+                    onClick={() => { setSourceDraft(userSource ?? ''); setEditingSource(true) }}
                     className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors"
                   >
                     <Pencil size={13} /> Edit
                   </button>
                 </div>
-                <SimplifiableContent content={note.official_source_2} topicName={topic.name} preserveBreaks />
+                <SimplifiableContent content={userSource} topicName={topic.name} preserveBreaks />
               </div>
             ) : !editingSource ? (
               <div className="py-16 text-center">
@@ -291,7 +453,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
                 />
                 <div className="flex justify-end gap-2 mt-3">
                   <button
-                    onClick={() => { setEditingSource(false); setSourceDraft(note?.official_source_2 ?? '') }}
+                    onClick={() => { setEditingSource(false); setSourceDraft(userSource ?? '') }}
                     className="text-xs text-gray-400 px-3 py-1.5 hover:text-gray-600"
                   >
                     Cancel
@@ -339,11 +501,11 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
             )}
 
             {/* User annotations */}
-            {annotations.length > 0 && (
+            {notes.length > 0 && (
               <div className="mt-6 pt-4 border-t border-gray-100">
-                <p className="text-xs font-medium text-gray-500 mb-2">Your notes ({annotations.length})</p>
+                <p className="text-xs font-medium text-gray-500 mb-2">Your notes ({notes.length})</p>
                 <div className="space-y-2">
-                  {annotations.map(a => (
+                  {notes.map(a => (
                     <div key={a.id} className="bg-gray-50 dark:bg-[#1C2128] rounded-lg px-3 py-2.5">
                       <p className="text-sm text-gray-700">{a.content}</p>
                       <p className="text-xs text-gray-400 mt-1">{relativeDate(a.created_at)}</p>
@@ -449,6 +611,51 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
           </div>
         </div>
       )}
+
+      {/* Highlight popover — anchored above the selection or the clicked highlight */}
+      {popover && (
+        <div
+          data-hl-popover
+          style={{ left: popover.x, top: popover.y }}
+          className="fixed z-50 -translate-x-1/2 -translate-y-[calc(100%+8px)] bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-lg shadow-lg px-2 py-1.5 flex items-center gap-1.5"
+        >
+          {popover.kind === 'create' ? (
+            HIGHLIGHT_COLORS.map(c => (
+              <button
+                key={c.key}
+                onClick={() => addHighlight(c.key)}
+                title={`Highlight ${c.label.toLowerCase()}`}
+                aria-label={`Highlight ${c.label.toLowerCase()}`}
+                className="w-5 h-5 rounded-full border border-black/10 dark:border-white/20 hover:scale-110 transition-transform"
+                style={{ backgroundColor: c.bg }}
+              />
+            ))
+          ) : (
+            <>
+              {HIGHLIGHT_COLORS.map(c => (
+                <button
+                  key={c.key}
+                  onClick={() => popover.hlId && recolorHighlight(popover.hlId, c.key)}
+                  title={`Change to ${c.label.toLowerCase()}`}
+                  aria-label={`Change to ${c.label.toLowerCase()}`}
+                  className="w-5 h-5 rounded-full border border-black/10 dark:border-white/20 hover:scale-110 transition-transform"
+                  style={{ backgroundColor: c.bg }}
+                />
+              ))}
+              <div className="w-px h-4 bg-gray-200 dark:bg-[#30363D] mx-0.5" />
+              <button
+                onClick={() => popover.hlId && removeHighlight(popover.hlId)}
+                title="Remove highlight"
+                aria-label="Remove highlight"
+                className="w-6 h-6 flex items-center justify-center rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <Trash2 size={14} />
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       <ScrollToTop />
     </div>
   )

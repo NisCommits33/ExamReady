@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
@@ -13,7 +14,9 @@ interface MarkdownProps {
   preserveBreaks?: boolean
 }
 
-export function Markdown({ children, className, compact = false, preserveBreaks = false }: MarkdownProps) {
+// Memoized: prevents ReactMarkdown from re-rendering (and reconciling away injected
+// highlight <mark> nodes) when an unrelated parent state changes.
+export const Markdown = memo(function Markdown({ children, className, compact = false, preserveBreaks = false }: MarkdownProps) {
   // Markdown collapses single newlines; for plain pasted text keep them as hard breaks
   // (two trailing spaces) while leaving blank-line paragraph breaks intact.
   const content = preserveBreaks ? children.replace(/(?<!\n)\n(?!\n)/g, '  \n') : children
@@ -125,4 +128,4 @@ export function Markdown({ children, className, compact = false, preserveBreaks 
     </ReactMarkdown>
     </div>
   )
-}
+})

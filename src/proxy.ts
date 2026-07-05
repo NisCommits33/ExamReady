@@ -21,11 +21,24 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
-
   const pathname = request.nextUrl.pathname
   const publicRoutes = ['/login', '/auth/callback', '/offline']
   const isPublic = publicRoutes.some(r => pathname.startsWith(r))
+
+  // Never let an auth/network hiccup 500 the whole app (which leaves the PWA stuck on its splash
+  // logo). On failure, treat the request as unauthenticated so it falls back to /login.
+  let user: { id: string } | null = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    if (!isPublic) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
+    return supabaseResponse
+  }
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone()

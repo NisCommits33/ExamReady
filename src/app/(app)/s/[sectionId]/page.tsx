@@ -12,12 +12,13 @@ export default async function SectionPage({ params }: { params: Promise<{ sectio
   const { data: section } = await supabase.from('exam_sections').select('*').eq('id', sectionId).maybeSingle()
   if (!section) notFound()
 
-  const [{ data: rawTopics }, { data: keyPoints }] = await Promise.all([
+  const [{ data: rawTopics }, { data: keyPoints }, { data: userSrcs }] = await Promise.all([
     supabase.from('topics').select(TOPIC_WITH_PROGRESS).eq('section_id', sectionId).order('topic_number'),
-    supabase.from('topic_notes').select('topic_id,key_points,official_source_2'),
+    supabase.from('topic_notes').select('topic_id,key_points'),
+    supabase.from('user_topic_sources').select('topic_id'),
   ])
-  // Topics whose user has uploaded their own source material — used to highlight them in lists.
-  const userSourceTopicIds = new Set((keyPoints ?? []).filter(n => n.official_source_2).map(n => n.topic_id))
+  // Topics where the current user has added their own source material — used to highlight them in lists.
+  const userSourceTopicIds = new Set((userSrcs ?? []).map(s => s.topic_id))
   const topics = flattenTopics(rawTopics).map(t => ({ ...t, has_user_source: userSourceTopicIds.has(t.id) }))
   const topicIds = new Set(topics.map(t => t.id))
   const tkp = (keyPoints ?? []).filter(kp => topicIds.has(kp.topic_id))

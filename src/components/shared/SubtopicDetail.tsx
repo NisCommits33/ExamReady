@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { BookOpen, PenLine, Layers, RefreshCw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -13,7 +13,11 @@ import { GKDrillPanel } from '@/components/gk/GKDrillPanel'
 import { createClient } from '@/lib/supabase/client'
 import { readStream } from '@/lib/sse'
 import { notifyTokens } from '@/lib/notify-tokens'
-import type { Topic, Subtopic } from '@/types/database'
+import { useHighlighter } from '@/hooks/useHighlighter'
+import { useResumeReading, type SavedPosition } from '@/hooks/useResumeReading'
+import { HighlightPopover } from '@/components/shared/HighlightPopover'
+import { ResumeBanner } from '@/components/shared/ResumeBanner'
+import type { Topic, Subtopic, UserAnnotation } from '@/types/database'
 
 type SubTab = 'study' | 'practice' | 'flashcards'
 type StudyTab = 'source' | 'note' | 'keypoints'
@@ -27,6 +31,38 @@ export function SubtopicDetail({ topic, subtopic, onBack }: { topic: Topic; subt
   const [refreshing, setRefreshing] = useState(false)
   const [digest, setDigest] = useState('')
   const [showDigest, setShowDigest] = useState(false)
+
+  // Highlighting + resume-reading (subtopic-scoped)
+  const [annotations, setAnnotations] = useState<UserAnnotation[]>([])
+  const readerRef = useRef<HTMLDivElement>(null)
+  const [resume, setResume] = useState<SavedPosition | null>(null)
+  const storageKey = `read:sub:${subtopic.id}`
+
+  useEffect(() => {
+    let active = true
+    const supabase = createClient()
+    supabase.from('user_annotations').select('*').eq('topic_id', topic.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { if (active) setAnnotations(data ?? []) })
+    Promise.resolve().then(() => {
+      if (!active) return
+      try {
+        const raw = localStorage.getItem(storageKey)
+        setResume(raw ? JSON.parse(raw) as SavedPosition : null)
+      } catch { /* ignore */ }
+    })
+    return () => { active = false }
+  }, [topic.id, subtopic.id, storageKey])
+
+  const { popover, onMouseUp, pick, removeHighlight } = useHighlighter({
+    readerRef, tab: studyTab, enabled: subTab === 'study', topicId: topic.id,
+    subtopicId: subtopic.id, annotations, setAnnotations, reapplyKey: note,
+  })
+  const { showResume, dismissResume, continueReading } = useResumeReading({
+    enabled: subTab === 'study', tab: studyTab, saved: resume,
+    save: (t, scroll) => { try { localStorage.setItem(storageKey, JSON.stringify({ tab: t, scroll })) } catch { /* ignore */ } },
+    onResumeTab: (t) => setStudyTab(t as StudyTab),
+  })
 
   async function generateNote() {
     setGenerating(true); setStreamText('')
@@ -120,6 +156,7 @@ export function SubtopicDetail({ topic, subtopic, onBack }: { topic: Topic; subt
 
       {subTab === 'study' && (
         <div>
+          {showResume && <ResumeBanner onContinue={continueReading} onDismiss={dismissResume} />}
           <div className="flex border-b border-gray-200 dark:border-[#30363D] mb-5 overflow-x-auto scrollbar-none">
             {studyTabs.map(t => (
               <button key={t.key} onClick={() => setStudyTab(t.key)} className={cn('flex-shrink-0 px-4 py-2.5 text-sm font-medium transition-all duration-150 border-b-2 -mb-px', studyTab === t.key ? 'text-brand-600 border-brand-600' : 'text-gray-400 border-transparent hover:text-gray-600 dark:hover:text-gray-300')}>
@@ -128,6 +165,7 @@ export function SubtopicDetail({ topic, subtopic, onBack }: { topic: Topic; subt
             ))}
           </div>
 
+          <div ref={readerRef} onMouseUp={onMouseUp}>
           {studyTab === 'source' && note.official_source && (
             <SimplifiableContent content={note.official_source} topicName={`${topic.name} — ${subtopic.name}`} />
           )}
@@ -150,6 +188,7 @@ export function SubtopicDetail({ topic, subtopic, onBack }: { topic: Topic; subt
               ? <Markdown>{note.key_points}</Markdown>
               : <div className="py-12 text-center"><p className="text-sm text-gray-400 mb-1">No key points yet</p><p className="text-xs text-gray-400">Generate the study note to populate this</p></div>
           )}
+          </div>
         </div>
       )}
 
@@ -160,6 +199,8 @@ export function SubtopicDetail({ topic, subtopic, onBack }: { topic: Topic; subt
           ? <Flashcards topics={[topic]} topicKeyPoints={[{ topic_id: topic.id, key_points: note.key_points }]} />
           : <div className="py-12 text-center"><p className="text-sm text-gray-400 mb-1">No flashcards yet</p><p className="text-xs text-gray-400">Generate the study note first</p></div>
       )}
+
+      {popover && <HighlightPopover popover={popover} onPick={pick} onRemove={removeHighlight} />}
       <ScrollToTop />
     </div>
   )

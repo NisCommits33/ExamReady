@@ -17,6 +17,10 @@ import { createClient } from '@/lib/supabase/client'
 import { isTextFile, readSourceFile } from '@/lib/source-file'
 import { readStream } from '@/lib/sse'
 import { notifyTokens } from '@/lib/notify-tokens'
+import { useHighlighter } from '@/hooks/useHighlighter'
+import { useResumeReading, type SavedPosition } from '@/hooks/useResumeReading'
+import { HighlightPopover } from '@/components/shared/HighlightPopover'
+import { ResumeBanner } from '@/components/shared/ResumeBanner'
 import type { Topic, TopicNote, TopicStatus, UserAnnotation, Subtopic } from '@/types/database'
 
 type SubTab = 'study' | 'practice'
@@ -46,24 +50,49 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
   const [selectedSubtopic, setSelectedSubtopic] = useState<Subtopic | null>(null)
   const [subtopicsOpen, setSubtopicsOpen] = useState(true)
 
+  // Highlighting + resume-reading
+  const readerRef = useRef<HTMLDivElement>(null)
+  const [resume, setResume] = useState<SavedPosition | null>(null)
+  const readingView = subTab === 'study' || !practiceTab
+  const { popover, onMouseUp, pick, removeHighlight } = useHighlighter({
+    readerRef, tab: studyTab, enabled: readingView, topicId: topic.id,
+    annotations, setAnnotations, reapplyKey: topicNote,
+  })
+  const saveProgress = (t: string, scroll: number) => {
+    const supabase = createClient()
+    void supabase.from('user_topic_progress').upsert(
+      { topic_id: topic.id, last_read_tab: t, last_read_scroll: scroll },
+      { onConflict: 'user_id,topic_id' },
+    )
+  }
+  const { showResume, dismissResume, continueReading } = useResumeReading({
+    enabled: readingView, tab: studyTab, saved: resume,
+    save: saveProgress, onResumeTab: (t) => setStudyTab(t as StudyTab),
+  })
+
   // User-uploaded source ("Your source" tab)
   const [editingSource, setEditingSource] = useState(false)
   const [sourceDraft, setSourceDraft] = useState('')
   const [uploadingSource, setUploadingSource] = useState(false)
   const [savingSource, setSavingSource] = useState(false)
+  const [userSource, setUserSource] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const [{ data: note }, { data: anns }, subs] = await Promise.all([
+      const [{ data: note }, { data: anns }, subs, { data: progress }, { data: srcRow }] = await Promise.all([
         supabase.from('topic_notes').select('*').eq('topic_id', topic.id).maybeSingle(),
         supabase.from('user_annotations').select('*').eq('topic_id', topic.id).order('created_at', { ascending: false }),
         fetchSubtopics(topic.id),
+        supabase.from('user_topic_progress').select('last_read_tab,last_read_scroll').eq('topic_id', topic.id).maybeSingle(),
+        supabase.from('user_topic_sources').select('content').eq('topic_id', topic.id).maybeSingle(),
       ])
       setTopicNote(note)
       setAnnotations(anns ?? [])
       setSubtopics(subs)
+      setResume(progress ? { tab: progress.last_read_tab, scroll: progress.last_read_scroll } : null)
+      setUserSource(srcRow?.content ?? null)
       if (note?.official_source) setStudyTab('source')
       else setStudyTab('note')
     }
@@ -124,17 +153,18 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
     setSavingSource(true)
     const value = sourceDraft.trim()
     const supabase = createClient()
-    const { error } = await supabase.from('topic_notes').upsert(
-      { topic_id: topic.id, official_source_2: value || null, updated_at: new Date().toISOString() },
-      { onConflict: 'topic_id' },
+    const { error } = await supabase.from('user_topic_sources').upsert(
+      { topic_id: topic.id, content: value || null, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,topic_id' },
     )
     setSavingSource(false)
     if (error) { toast.error('Failed to save source'); return }
-    setTopicNote(prev => ({ ...(prev ?? {} as TopicNote), official_source_2: value || null }))
+    setUserSource(value || null)
     setEditingSource(false)
     toast.success('Source saved')
   }
 
+  const notes = annotations.filter(a => a.annotation_type === 'note')
   const hasSource = !!topicNote?.official_source
   const studyTabs: { key: StudyTab; label: string }[] = [
     ...(hasSource ? [{ key: 'source' as StudyTab, label: 'Official source' }] : []),
@@ -168,6 +198,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
 
       {(subTab === 'study' || !practiceTab) && (
         <div>
+          {showResume && !selectedSubtopic && <ResumeBanner onContinue={continueReading} onDismiss={dismissResume} />}
           {subtopics.length > 0 && (
             <div className="mb-5">
               <button
@@ -210,12 +241,13 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
             {studyTabs.map(t => (
               <button key={t.key} onClick={() => setStudyTab(t.key)} className={cn('flex-shrink-0 px-4 py-2.5 text-sm font-medium transition-all duration-150 border-b-2 -mb-px flex items-center gap-1.5', studyTab === t.key ? 'text-brand-600 border-brand-600' : 'text-gray-400 border-transparent hover:text-gray-600 dark:hover:text-gray-300')}>
                 {t.label}
-                {t.key === 'your_source' && topicNote?.official_source_2 && <span className="w-1.5 h-1.5 rounded-full bg-violet-400" title="You added your own source" />}
+                {t.key === 'your_source' && userSource && <span className="w-1.5 h-1.5 rounded-full bg-violet-400" title="You added your own source" />}
                 {extracting && (t.key === 'keypoints' || t.key === 'tips') && <span className="w-3 h-3 border border-gray-300 border-t-brand-400 rounded-full animate-spin" />}
               </button>
             ))}
           </div>
 
+          <div ref={readerRef} onMouseUp={onMouseUp}>
           {studyTab === 'source' && topicNote?.official_source && (
             <div>
               <SimplifiableContent
@@ -234,13 +266,13 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
 
           {studyTab === 'your_source' && (
             <div>
-              {!editingSource && topicNote?.official_source_2 ? (
+              {!editingSource && userSource ? (
                 <div>
                   <div className="mb-4 flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-[#1C2128] border border-gray-200 dark:border-[#30363D] rounded-lg">
                     <span className="text-xs text-gray-500 dark:text-gray-400">Your own source — grounds AI notes, MCQs &amp; key numbers.</span>
-                    <button onClick={() => { setSourceDraft(topicNote.official_source_2 ?? ''); setEditingSource(true) }} className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors"><Pencil size={13} /> Edit</button>
+                    <button onClick={() => { setSourceDraft(userSource ?? ''); setEditingSource(true) }} className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors"><Pencil size={13} /> Edit</button>
                   </div>
-                  <SimplifiableContent content={topicNote.official_source_2} topicName={topic.name} preserveBreaks />
+                  <SimplifiableContent content={userSource} topicName={topic.name} preserveBreaks />
                 </div>
               ) : !editingSource ? (
                 <div className="py-16 text-center">
@@ -259,7 +291,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
                   </div>
                   <textarea value={sourceDraft} onChange={e => setSourceDraft(e.target.value)} rows={14} placeholder="Paste your source material here, or upload a PDF/image to extract its text…" className="w-full text-sm font-mono text-gray-700 dark:text-gray-100 dark:bg-transparent border border-gray-200 dark:border-[#30363D] rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-brand-400/30 focus:border-brand-400" />
                   <div className="flex justify-end gap-2 mt-3">
-                    <button onClick={() => { setEditingSource(false); setSourceDraft(topicNote?.official_source_2 ?? '') }} className="text-xs text-gray-400 px-3 py-1.5 hover:text-gray-600">Cancel</button>
+                    <button onClick={() => { setEditingSource(false); setSourceDraft(userSource ?? '') }} className="text-xs text-gray-400 px-3 py-1.5 hover:text-gray-600">Cancel</button>
                     <button onClick={saveSource} disabled={savingSource || uploadingSource} className="flex items-center gap-1.5 text-xs font-medium text-white bg-brand-600 px-3 py-1.5 rounded-lg hover:bg-brand-800 transition-colors disabled:opacity-50">
                       {savingSource && <Loader2 size={13} className="animate-spin" />} Save
                     </button>
@@ -279,11 +311,11 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
               )}
               {generating && (<div>{streamText ? <LoadingStream text={streamText} streaming className="mb-4" /> : <StreamingSkeleton />}</div>)}
               {!generating && topicNote?.study_note && <SimplifiableContent content={topicNote.study_note} topicName={topic.name} />}
-              {annotations.length > 0 && (
+              {notes.length > 0 && (
                 <div className="mt-6 pt-4 border-t border-gray-100 dark:border-[#21262D]">
-                  <p className="text-xs font-medium text-gray-500 mb-2">Your notes ({annotations.length})</p>
+                  <p className="text-xs font-medium text-gray-500 mb-2">Your notes ({notes.length})</p>
                   <div className="space-y-2">
-                    {annotations.map(a => (<div key={a.id} className="bg-gray-50 dark:bg-[#1C2128] rounded-lg px-3 py-2.5"><p className="text-sm text-gray-700 dark:text-gray-300">{a.content}</p><p className="text-xs text-gray-400 mt-1">{relativeDate(a.created_at)}</p></div>))}
+                    {notes.map(a => (<div key={a.id} className="bg-gray-50 dark:bg-[#1C2128] rounded-lg px-3 py-2.5"><p className="text-sm text-gray-700 dark:text-gray-300">{a.content}</p><p className="text-xs text-gray-400 mt-1">{relativeDate(a.created_at)}</p></div>))}
                   </div>
                 </div>
               )}
@@ -302,6 +334,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
           {studyTab === 'keypoints' && (<div>{extracting ? (<div className="py-12 text-center"><div className="w-5 h-5 border-2 border-gray-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-3" /><p className="text-sm text-gray-400">Extracting key points…</p></div>) : topicNote?.key_points ? <Markdown>{topicNote.key_points}</Markdown> : (<div className="py-12 text-center"><p className="text-sm text-gray-400 mb-1">No key points yet</p><p className="text-xs text-gray-400">Generate the study note to populate this tab automatically</p></div>)}</div>)}
 
           {studyTab === 'tips' && (<div>{extracting ? (<div className="py-12 text-center"><div className="w-5 h-5 border-2 border-gray-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-3" /><p className="text-sm text-gray-400">Extracting exam tips…</p></div>) : topicNote?.exam_tips ? <Markdown>{topicNote.exam_tips}</Markdown> : (<div className="py-12 text-center"><p className="text-sm text-gray-400 mb-1">No exam tips yet</p><p className="text-xs text-gray-400">Generate the study note to populate this tab automatically</p></div>)}</div>)}
+          </div>
 
           {(studyTab === 'note' || studyTab === 'source' || studyTab === 'your_source') && (
             <div className="fixed bottom-16 md:bottom-4 left-0 right-0 md:left-60 flex justify-center px-4 pointer-events-none z-30">
@@ -317,6 +350,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
         </div>
       )}
 
+      {popover && <HighlightPopover popover={popover} onPick={pick} onRemove={removeHighlight} />}
       <ScrollToTop />
     </div>
   )

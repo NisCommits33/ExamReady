@@ -8,14 +8,15 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { topicId, sectionId, subtopicId, difficulty, count } = await req.json()
+  const { topicId, sectionId, subtopicId, examId, difficulty, count } = await req.json()
   const n = Math.min(50, Math.max(1, Number(count) || 5))
 
   const service = await createServiceClient()
   let q = service.from('mcq_questions').select('id')
   if (topicId) q = q.eq('topic_id', topicId)
   else if (sectionId) q = q.eq('section_id', sectionId)
-  else return NextResponse.json({ error: 'Missing topicId or sectionId' }, { status: 400 })
+  else if (examId) q = q.eq('exam_id', examId)
+  else return NextResponse.json({ error: 'Missing topicId, sectionId or examId' }, { status: 400 })
   if (subtopicId) q = q.eq('subtopic_id', subtopicId)
   if (['easy', 'medium', 'hard'].includes(difficulty)) q = q.eq('difficulty', difficulty)
 

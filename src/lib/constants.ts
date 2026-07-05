@@ -1,3 +1,9 @@
+// Groq models. `llama-3.3-70b-versatile` is decommissioned 2026-08-16, replaced by:
+//  - SMART: streaming study notes (quality-first)
+//  - FAST:  high-volume structured JSON (MCQs, syllabus scaffold) — cheaper/faster
+export const GROQ_MODEL_SMART = 'openai/gpt-oss-120b'
+export const GROQ_MODEL_FAST = 'qwen/qwen3-32b'
+
 export const EXAM_DATE = new Date('2025-08-13')
 export const EXAM_NAME = 'CAAN Level 5'
 export const EXAM_LABEL = 'Aviation Fire Services'

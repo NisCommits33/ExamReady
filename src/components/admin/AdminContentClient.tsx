@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Plus, Trash2, ChevronDown, FileText, Layers, ListChecks } from 'lucide-react'
+import { Loader2, Plus, Trash2, ChevronDown, FileText, Layers, ListChecks, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { TopicSourceEditor } from '@/components/admin/TopicSourceEditor'
 import { SubtopicManager } from '@/components/admin/SubtopicManager'
 import { TopicMcqManager } from '@/components/admin/TopicMcqManager'
+import { ExamBuilder, type ExamBuilderPayload } from '@/components/shared/ExamBuilder'
 import { useConfirm, type ConfirmOptions } from '@/components/ui/ConfirmDialog'
 import type { AdminExam, AdminShiftType, AdminTopicBrief, AdminSectionBrief } from '@/lib/admin'
 
@@ -18,6 +19,16 @@ async function post(body: Record<string, unknown>): Promise<boolean> {
   return true
 }
 
+async function postJson<T>(body: Record<string, unknown>): Promise<T | null> {
+  const res = await fetch('/api/admin/content', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  const json = await res.json()
+  if (!res.ok) { toast.error(json.error ?? 'Failed'); return null }
+  return json as T
+}
+
+type SectionKind = 'mcq_study' | 'aptitude' | 'written'
+const KIND_LABEL: Record<string, string> = { mcq_study: 'MCQ', aptitude: 'Aptitude', written: 'Written' }
+
 export function AdminContentClient({ exams, shiftTypes, topics, sections }: { exams: AdminExam[]; shiftTypes: AdminShiftType[]; topics: AdminTopicBrief[]; sections: AdminSectionBrief[] }) {
   const router = useRouter()
   const confirm = useConfirm()
@@ -27,6 +38,8 @@ export function AdminContentClient({ exams, shiftTypes, topics, sections }: { ex
   const [subTopic, setSubTopic] = useState<string | null>(null)
   const [mcqTopic, setMcqTopic] = useState<string | null>(null)
   const [newTopic, setNewTopic] = useState({ name: '', number: '', paper: 2, section: 'B', sectionId: '', subtopics: '' })
+  const [showNewExam, setShowNewExam] = useState(false)
+  const [newExamPublic, setNewExamPublic] = useState(false)
 
   async function run(key: string, body: Record<string, unknown>, ok: string, confirmOpts?: ConfirmOptions) {
     if (confirmOpts && !(await confirm(confirmOpts))) return false
@@ -35,6 +48,26 @@ export function AdminContentClient({ exams, shiftTypes, topics, sections }: { ex
     setBusy(null)
     if (success) { toast.success(ok); router.refresh() }
     return success
+  }
+
+  // Create an exam (admin) then scaffold its sections/topics from the reviewed syllabus.
+  async function handleCreateExam(payload: ExamBuilderPayload) {
+    const created = await postJson<{ examId: string }>({ action: 'createExam', name: payload.name, body: payload.body, is_public: newExamPublic })
+    if (!created?.examId) return
+    if (payload.sections.length) {
+      try {
+        const res = await fetch('/api/ai/scaffold-exam', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ examId: created.examId, examName: payload.name, sections: payload.sections }),
+        })
+        if (!res.ok) toast.warning('Exam created, but adding topics had trouble — add them below.')
+      } catch {
+        toast.warning('Exam created, but adding topics had trouble — add them below.')
+      }
+    }
+    toast.success('Exam created')
+    setShowNewExam(false); setNewExamPublic(false)
+    router.refresh()
   }
 
   return (
@@ -49,7 +82,34 @@ export function AdminContentClient({ exams, shiftTypes, topics, sections }: { ex
 
       {/* Exams */}
       <section className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl p-4">
-        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Exams</p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Exams</p>
+          <button
+            onClick={() => setShowNewExam(v => !v)}
+            className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors"
+          >
+            {showNewExam ? <><X size={13} /> Close</> : <><Plus size={13} /> New exam</>}
+          </button>
+        </div>
+
+        {showNewExam && (
+          <div className="mb-4 border border-brand-200 dark:border-brand-800 rounded-xl p-4 bg-brand-50/40 dark:bg-brand-900/10">
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1 flex items-center gap-1.5"><Sparkles size={14} className="text-brand-600" /> Create exam from syllabus</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Name it, upload or paste a syllabus, and AI will scaffold its sections &amp; topics.</p>
+            <ExamBuilder
+              onCommit={handleCreateExam}
+              onBack={() => { setShowNewExam(false); setNewExamPublic(false) }}
+              submitLabel={(n) => `Create exam with ${n} topic${n === 1 ? '' : 's'}`}
+              extraFields={
+                <label className="flex items-center gap-2 mb-3 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+                  <input type="checkbox" checked={newExamPublic} onChange={e => setNewExamPublic(e.target.checked)} className="accent-brand-600" />
+                  Make public (show in the catalog to all users)
+                </label>
+              }
+            />
+          </div>
+        )}
+
         <div className="space-y-2">
           {exams.map(e => {
             const examTopics = topics.filter(t => t.exam_id === e.id)
@@ -72,10 +132,21 @@ export function AdminContentClient({ exams, shiftTypes, topics, sections }: { ex
                   >
                     {busy === 'pub-' + e.id ? <Loader2 size={12} className="animate-spin" /> : e.is_public ? 'Public' : 'Private'}
                   </button>
+                  <button
+                    onClick={() => run('del-exam-' + e.id, { action: 'deleteExam', examId: e.id }, 'Exam deleted', { title: 'Delete exam?', message: `"${e.name}" and its ${e.sections} section(s), ${e.topics} topic(s) and ${e.enrollments} enrolment(s) will be permanently deleted. This cannot be undone.`, confirmLabel: 'Delete exam', danger: true })}
+                    disabled={busy !== null}
+                    title="Delete exam"
+                    className="flex-shrink-0 p-1.5 rounded-md text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    {busy === 'del-exam-' + e.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={14} />}
+                  </button>
                 </div>
 
                 {open && (
                   <div className="px-3 pb-3 space-y-2 border-t border-gray-100 dark:border-[#21262D] pt-3">
+                    {/* Sections */}
+                    <SectionsBlock examId={e.id} sections={examSections} busy={busy} run={run} />
+
                     {/* Topics */}
                     {examTopics.map(t => (
                       <div key={t.id}>
@@ -161,6 +232,68 @@ function ShiftRow({ shift, busy, run }: { shift: AdminShiftType; busy: string | 
         className="ml-auto text-xs font-medium text-white bg-brand-600 px-3 py-1.5 rounded-md hover:bg-brand-800 disabled:opacity-40"
       >
         {busy === 'shift-' + shift.type ? <Loader2 size={12} className="animate-spin" /> : 'Save'}
+      </button>
+    </div>
+  )
+}
+
+type RunFn = (k: string, b: Record<string, unknown>, ok: string, c?: ConfirmOptions) => Promise<boolean>
+
+function SectionsBlock({ examId, sections, busy, run }: { examId: string; sections: AdminSectionBrief[]; busy: string | null; run: RunFn }) {
+  const [name, setName] = useState('')
+  const [kind, setKind] = useState<SectionKind>('mcq_study')
+  return (
+    <div className="rounded-md bg-gray-50 dark:bg-[#1C2128] p-2.5 space-y-1.5">
+      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Sections</p>
+      {sections.map(s => <SectionRow key={s.id} section={s} busy={busy} run={run} />)}
+      {sections.length === 0 && <p className="text-[11px] text-gray-400">No sections yet — add one so topics become visible to users.</p>}
+      <div className="flex items-center gap-1.5 pt-1">
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="New section name" className="flex-1 min-w-[100px] text-xs border border-gray-200 dark:border-[#30363D] dark:bg-[#161B22] rounded-md px-2 py-1.5 focus:outline-none" />
+        <select value={kind} onChange={e => setKind(e.target.value as SectionKind)} className="text-xs border border-gray-200 dark:border-[#30363D] dark:bg-[#161B22] rounded-md px-1 py-1.5">
+          <option value="mcq_study">MCQ</option>
+          <option value="aptitude">Aptitude</option>
+          <option value="written">Written</option>
+        </select>
+        <button
+          onClick={async () => { if (await run('addsec-' + examId, { action: 'addSection', examId, name, kind }, 'Section added')) setName('') }}
+          disabled={busy !== null || !name.trim()}
+          className="inline-flex items-center gap-1 text-xs font-medium text-white bg-brand-600 px-2 py-1.5 rounded-md hover:bg-brand-800 disabled:opacity-40"
+        >
+          {busy === 'addsec-' + examId ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Add
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SectionRow({ section, busy, run }: { section: AdminSectionBrief; busy: string | null; run: RunFn }) {
+  const [name, setName] = useState(section.name)
+  const [kind, setKind] = useState<SectionKind>((['mcq_study', 'aptitude', 'written'].includes(section.kind) ? section.kind : 'mcq_study') as SectionKind)
+  const dirty = name !== section.name || kind !== section.kind
+  return (
+    <div className="flex items-center gap-1.5">
+      <input value={name} onChange={e => setName(e.target.value)} className="flex-1 min-w-[100px] text-xs border border-gray-200 dark:border-[#30363D] dark:bg-[#161B22] rounded-md px-2 py-1.5 focus:outline-none" />
+      <select value={kind} onChange={e => setKind(e.target.value as SectionKind)} className="text-xs border border-gray-200 dark:border-[#30363D] dark:bg-[#161B22] rounded-md px-1 py-1.5">
+        <option value="mcq_study">MCQ</option>
+        <option value="aptitude">Aptitude</option>
+        <option value="written">Written</option>
+      </select>
+      {dirty && (
+        <button
+          onClick={() => run('sec-' + section.id, { action: 'updateSection', sectionId: section.id, fields: { name, kind } }, 'Section updated')}
+          disabled={busy !== null || !name.trim()}
+          className="text-xs font-medium text-white bg-brand-600 px-2 py-1.5 rounded-md hover:bg-brand-800 disabled:opacity-40"
+        >
+          {busy === 'sec-' + section.id ? <Loader2 size={12} className="animate-spin" /> : 'Save'}
+        </button>
+      )}
+      <button
+        onClick={() => run('secdel-' + section.id, { action: 'deleteSection', sectionId: section.id }, 'Section deleted', { title: 'Delete section?', message: `"${section.name}" (${KIND_LABEL[section.kind] ?? section.kind}) and all its topics will be permanently deleted. This cannot be undone.`, confirmLabel: 'Delete section', danger: true })}
+        disabled={busy !== null}
+        title="Delete section"
+        className="text-gray-300 hover:text-red-500 flex-shrink-0"
+      >
+        {busy === 'secdel-' + section.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={13} />}
       </button>
     </div>
   )

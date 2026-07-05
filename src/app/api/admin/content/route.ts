@@ -12,12 +12,66 @@ export async function POST(req: Request) {
 
   try {
     switch (action) {
+      case 'createExam': {
+        const { name, body: examBody, description, is_public } = body
+        if (!name?.trim()) return NextResponse.json({ error: 'Missing exam name' }, { status: 400 })
+        const { data: exam, error } = await service.from('exams').insert({
+          name: name.trim(),
+          body: examBody?.trim() || null,
+          description: description?.trim() || null,
+          is_public: !!is_public,
+          created_by: adminId,
+          config: {},
+        }).select('id').single()
+        if (error) throw error
+        return NextResponse.json({ ok: true, examId: exam.id })
+      }
+      case 'addSection': {
+        const { examId, name, kind } = body
+        if (!examId || !name?.trim()) return NextResponse.json({ error: 'Missing examId/name' }, { status: 400 })
+        const k = ['mcq_study', 'aptitude', 'written'].includes(kind) ? kind : 'mcq_study'
+        const { data: last } = await service.from('exam_sections').select('sort_order').eq('exam_id', examId).order('sort_order', { ascending: false }).limit(1).maybeSingle()
+        const { error } = await service.from('exam_sections').insert({ exam_id: examId, name: name.trim(), kind: k, sort_order: (last?.sort_order ?? 0) + 1 })
+        if (error) throw error
+        return NextResponse.json({ ok: true })
+      }
+      case 'updateSection': {
+        const { sectionId, fields } = body
+        if (!sectionId || !fields) return NextResponse.json({ error: 'Missing sectionId/fields' }, { status: 400 })
+        const allowed: Record<string, unknown> = {}
+        if (typeof fields.name === 'string' && fields.name.trim()) allowed.name = fields.name.trim()
+        if (['mcq_study', 'aptitude', 'written'].includes(fields.kind)) allowed.kind = fields.kind
+        if (Object.keys(allowed).length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
+        const { error } = await service.from('exam_sections').update(allowed).eq('id', sectionId)
+        if (error) throw error
+        return NextResponse.json({ ok: true })
+      }
+      case 'deleteSection': {
+        const { sectionId } = body
+        if (!sectionId) return NextResponse.json({ error: 'Missing sectionId' }, { status: 400 })
+        // topics.section_id is SET NULL on section delete — remove the section's topics
+        // explicitly first (their notes/subtopics cascade) to avoid orphaning them.
+        await service.from('topics').delete().eq('section_id', sectionId)
+        const { error } = await service.from('exam_sections').delete().eq('id', sectionId)
+        if (error) throw error
+        return NextResponse.json({ ok: true })
+      }
       case 'updateExam': {
         const { examId, fields } = body
         if (!examId || !fields) return NextResponse.json({ error: 'Missing examId/fields' }, { status: 400 })
         const allowed: Record<string, unknown> = {}
         for (const k of ['name', 'body', 'description', 'is_public']) if (k in fields) allowed[k] = fields[k]
         const { error } = await service.from('exams').update(allowed).eq('id', examId)
+        if (error) throw error
+        return NextResponse.json({ ok: true })
+      }
+      case 'deleteExam': {
+        const { examId } = body
+        if (!examId) return NextResponse.json({ error: 'Missing examId' }, { status: 400 })
+        // Detach any exams cloned from this one (cloned_from FK is NO ACTION, not cascade).
+        await service.from('exams').update({ cloned_from: null }).eq('cloned_from', examId)
+        // Deleting the exam cascades to its sections, topics, MCQs and enrolments.
+        const { error } = await service.from('exams').delete().eq('id', examId)
         if (error) throw error
         return NextResponse.json({ ok: true })
       }

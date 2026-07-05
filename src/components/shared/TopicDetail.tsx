@@ -21,6 +21,7 @@ import { useHighlighter } from '@/hooks/useHighlighter'
 import { useResumeReading, type SavedPosition } from '@/hooks/useResumeReading'
 import { HighlightPopover } from '@/components/shared/HighlightPopover'
 import { ResumeBanner } from '@/components/shared/ResumeBanner'
+import { GROQ_MODEL_SMART } from '@/lib/constants'
 import type { Topic, TopicNote, TopicStatus, UserAnnotation, Subtopic } from '@/types/database'
 
 type SubTab = 'study' | 'practice'
@@ -110,7 +111,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
       const { text: full, tokens } = await readStream(res, setStreamText)
       notifyTokens(tokens)
       const supabase = createClient()
-      await supabase.from('topic_notes').upsert({ topic_id: topic.id, study_note: full, generated_at: new Date().toISOString(), model_used: 'llama-3.3-70b-versatile', updated_at: new Date().toISOString() })
+      await supabase.from('topic_notes').upsert({ topic_id: topic.id, study_note: full, generated_at: new Date().toISOString(), model_used: GROQ_MODEL_SMART, updated_at: new Date().toISOString() })
       setTopicNote(prev => ({ ...(prev ?? {} as TopicNote), study_note: full }))
       toast.success('Study note generated — extracting key points…')
       setExtracting(true)

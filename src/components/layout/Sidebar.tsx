@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Brain, Globe, Flame, Calendar, BarChart3, PlusCircle, LogOut, BookOpen, User, Shield, Sparkles } from 'lucide-react'
+import { Home, Brain, Globe, Flame, Calendar, BarChart3, PlusCircle, LogOut, BookOpen, User, Shield, Sparkles, Timer } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -28,6 +28,7 @@ export function Sidebar({ onLogSession, examName = 'LOKAI', sections = [], isSup
     : [
         { href: '/',          label: 'Home',        Icon: Home      },
         ...sectionNav,
+        { href: '/mock-exam', label: 'Mock Exam',   Icon: Timer     },
         { href: '/review',    label: 'Daily Review', Icon: Sparkles },
         { href: '/timetable', label: 'Timetable',   Icon: Calendar  },
         { href: '/progress',  label: 'Progress',    Icon: BarChart3 },

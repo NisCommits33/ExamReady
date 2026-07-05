@@ -11,7 +11,9 @@ export interface TokenUsage { prompt: number; completion: number; total: number 
  * `in` = prompt/input tokens, `out` = completion/output tokens.
  */
 export const PRICING: Record<string, { in: number; out: number }> = {
-  'llama-3.3-70b-versatile':        { in: 0.59, out: 0.79 },
+  'openai/gpt-oss-120b':            { in: 0.15, out: 0.75 },
+  'qwen/qwen3-32b':                 { in: 0.29, out: 0.59 },
+  'llama-3.3-70b-versatile':        { in: 0.59, out: 0.79 }, // decommissioned 2026-08-16 (historical rows)
   'gemini-2.0-flash':               { in: 0.10, out: 0.40 },
   'gemini-2.0-flash-thinking-exp':  { in: 0.00, out: 0.00 },
 }

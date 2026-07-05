@@ -10,6 +10,7 @@ import { LoadingStream, StreamingSkeleton } from '@/components/shared/LoadingStr
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn, relativeDate } from '@/lib/utils'
+import { GROQ_MODEL_SMART } from '@/lib/constants'
 import { Markdown } from '@/components/ui/Markdown'
 import { isTextFile, readSourceFile } from '@/lib/source-file'
 import { readStream } from '@/lib/sse'
@@ -141,7 +142,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
         topic_id: topic.id,
         study_note: full,
         generated_at: new Date().toISOString(),
-        model_used: 'llama-3.3-70b-versatile',
+        model_used: GROQ_MODEL_SMART,
         updated_at: new Date().toISOString(),
       })
       setNote(prev => ({ ...(prev ?? {} as TopicNote), study_note: full }))

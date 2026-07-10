@@ -40,6 +40,30 @@ export function AdminContentClient({ exams, shiftTypes, topics, sections }: { ex
   const [newTopic, setNewTopic] = useState({ name: '', number: '', paper: 2, section: 'B', sectionId: '', subtopics: '' })
   const [showNewExam, setShowNewExam] = useState(false)
   const [newExamPublic, setNewExamPublic] = useState(false)
+  const [indexing, setIndexing] = useState(false)
+  const [indexResult, setIndexResult] = useState<string | null>(null)
+
+  // Backfill the RAG (AI search) index for every topic with content.
+  async function rebuildIndex() {
+    setIndexing(true); setIndexResult(null)
+    try {
+      const res = await fetch('/api/ai/ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ all: true }) })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const msg = json.error ?? `Failed (HTTP ${res.status})`
+        toast.error('Failed to rebuild index'); setIndexResult(`❌ ${msg}`)
+      } else {
+        const errs: string[] = json.errors ?? []
+        const msg = `${json.inserted ?? 0} chunks across ${json.topics ?? 0} topics`
+        if (errs.length) { toast.error('Index rebuilt with errors'); setIndexResult(`⚠️ ${msg}\n${errs.join('\n')}`) }
+        else { toast.success(`AI index rebuilt — ${msg}`); setIndexResult(`✅ ${msg}`) }
+      }
+    } catch (e) {
+      toast.error('Failed to rebuild index'); setIndexResult(`❌ ${String(e)}`)
+    } finally {
+      setIndexing(false)
+    }
+  }
 
   async function run(key: string, body: Record<string, unknown>, ok: string, confirmOpts?: ConfirmOptions) {
     if (confirmOpts && !(await confirm(confirmOpts))) return false
@@ -72,6 +96,24 @@ export function AdminContentClient({ exams, shiftTypes, topics, sections }: { ex
 
   return (
     <div className="space-y-4">
+      {/* AI search index */}
+      <section className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">AI search index (RAG)</p>
+            <p className="text-xs text-gray-400">Embed all topic notes, sources &amp; annotations so the AI chat retrieves relevant passages.</p>
+          </div>
+          <button
+            onClick={rebuildIndex}
+            disabled={indexing}
+            className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-white bg-brand-600 px-3 py-2 rounded-lg hover:bg-brand-800 transition-colors disabled:opacity-50"
+          >
+            {indexing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} {indexing ? 'Rebuilding…' : 'Rebuild index'}
+          </button>
+        </div>
+        {indexResult && <p className="mt-2 text-xs font-mono text-gray-600 dark:text-gray-300 break-words whitespace-pre-wrap">{indexResult}</p>}
+      </section>
+
       {/* Shift types */}
       <section className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl p-4">
         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Shift study windows</p>

@@ -16,6 +16,8 @@ export const PRICING: Record<string, { in: number; out: number }> = {
   'llama-3.3-70b-versatile':        { in: 0.59, out: 0.79 }, // decommissioned 2026-08-16 (historical rows)
   'gemini-2.0-flash':               { in: 0.10, out: 0.40 },
   'gemini-2.0-flash-thinking-exp':  { in: 0.00, out: 0.00 },
+  'baai/bge-base-en-v1.5':          { in: 0.005, out: 0.00 }, // RAG embeddings via OpenRouter (default)
+  'openai/text-embedding-3-small':  { in: 0.02, out: 0.00 },  // RAG embeddings (alt)
 }
 
 /** Estimated USD cost for a single call's token split. */

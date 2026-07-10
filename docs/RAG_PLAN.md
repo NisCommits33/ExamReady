@@ -35,7 +35,7 @@ New migration `supabase/migrations/002_rag.sql`:
 - `match_chunks(query_embedding vector(768), match_count int, filter_topic uuid default null)` SQL function returning `content, source_type, topic_id, 1 - (embedding <=> query_embedding) as similarity`, ordered by `embedding <=> query_embedding`, limited to `match_count`.
 
 ### Phase 2 — Embedding + chunking helpers
-- **`src/lib/gemini.ts`** — add `embed(texts: string[]): Promise<number[][]>` using `ai.models.embedContent({ model: 'text-embedding-004', contents })` (768 dims). Route token usage through `recordUsage('gemini', 'text-embedding-004', 'embed', …)` ([usage.ts:30](../src/lib/usage.ts)) to keep quota accounting intact; extend `PRICING` with the embedding rate.
+- **`src/lib/openrouter.ts`** — add `openrouterEmbed(texts: string[]): Promise<number[][]>` hitting OpenRouter's OpenAI-compatible `/embeddings` endpoint. Default model `baai/bge-base-en-v1.5` (natively 768 dims, ~$0.005/1M tokens — effectively free), overridable via `OPENROUTER_EMBED_MODEL` (+ optional `OPENROUTER_EMBED_DIMS` for Matryoshka models like `openai/text-embedding-3-small`). Reuses the existing `OPENROUTER_API_KEY` — **no Gemini key needed; Groq has no embeddings endpoint**. Usage via `recordUsage('openrouter', model, 'embed', …)` ([usage.ts:30](../src/lib/usage.ts)); `PRICING` extended.
 - **New `src/lib/rag.ts`** — the ingestion/retrieval core:
   - `chunk(text): string[]` — split markdown on headings, then pack to ~500–800 tokens with ~15% overlap (notes are markdown; preserve heading context per chunk).
   - `ingestTopic(supabase, topicId)` — pull the topic's `topic_notes` fields + `user_annotations`, chunk each, compute `content_hash`, skip unchanged, embed new chunks in batches, upsert into `content_chunks`.
@@ -52,7 +52,7 @@ In [api/ai/chat/route.ts](../src/app/api/ai/chat/route.ts): replace the `study_n
 | Decision | Choice |
 |---|---|
 | Vector store | Supabase `pgvector` (no new service) |
-| Embedding model | Gemini `text-embedding-004`, 768 dims (SDK + key already present) |
+| Embedding model | OpenRouter `baai/bge-base-en-v1.5` @ 768 dims, ~$0.005/1M (reuses existing OPENROUTER_API_KEY; no Gemini; Groq has no embeddings) |
 | When to embed | On note/annotation write + one-off backfill — never on read (cost control) |
 | Retrieval scope | Current-topic-boosted, cross-topic fallback; degrades to naive slice if empty |
 | Idempotency | `content_hash` unique constraint; skip unchanged chunks |

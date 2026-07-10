@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { Toaster } from '@/components/ui/sonner'
 
 const NAV = [
   { href: '/admin',               label: 'Dashboard',     Icon: LayoutDashboard, exact: true },
@@ -139,6 +140,8 @@ export function AdminShell({ name, email, children }: { name: string; email: str
           <X size={18} />
         </button>
       )}
+
+      <Toaster position="top-center" richColors closeButton />
     </div>
   )
 }

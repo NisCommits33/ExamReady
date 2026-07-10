@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef, type ReactNode } from 'react'
-import { BookOpen, PenLine, MessageSquare, Plus, ChevronRight, ChevronDown, Layers, RefreshCw, Upload, Loader2, Pencil } from 'lucide-react'
+import { BookOpen, PenLine, MessageSquare, Plus, ChevronRight, ChevronDown, Layers, RefreshCw, Upload, Loader2, Pencil, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn, relativeDate } from '@/lib/utils'
-import { useChatActions } from '@/components/ai/ChatProvider'
+import { useChatActions, useChatState } from '@/components/ai/ChatProvider'
 import { Markdown } from '@/components/ui/Markdown'
 import { SimplifiableContent } from '@/components/shared/SimplifiableContent'
 import { ScrollToTop } from '@/components/shared/ScrollToTop'
@@ -43,13 +43,28 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
   const [generating, setGenerating] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [streamText, setStreamText] = useState('')
-  const { openChat, closeChat } = useChatActions()
+  const { openChat, closeChat, dock, undock } = useChatActions()
+  const { docked } = useChatState()
   const [annotationText, setAnnotationText] = useState('')
   const [showAnnotation, setShowAnnotation] = useState(false)
   const [status, setStatus] = useState<TopicStatus>(topic.status)
   const [subtopics, setSubtopics] = useState<Subtopic[]>([])
   const [selectedSubtopic, setSelectedSubtopic] = useState<Subtopic | null>(null)
   const [subtopicsOpen, setSubtopicsOpen] = useState(true)
+
+  // Desktop (xl+) chat rail (ChatDock in Shell). Dock on open, undock on leave;
+  // remember the collapsed preference across topics.
+  useEffect(() => {
+    let open = true
+    try { open = localStorage.getItem('chatDock:open') !== '0' } catch { /* ignore */ }
+    if (open) dock(topic.id, topic.name)
+    return () => { undock() }
+  }, [topic.id, topic.name, dock, undock])
+
+  // Persist the user's show/hide choice as they toggle the rail (mount-scoped).
+  useEffect(() => {
+    try { localStorage.setItem('chatDock:open', docked ? '1' : '0') } catch { /* ignore */ }
+  }, [docked])
 
   // Highlighting + resume-reading
   const readerRef = useRef<HTMLDivElement>(null)
@@ -100,6 +115,11 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
     load()
   }, [topic.id])
 
+  // Fire-and-forget: keep the RAG index fresh after content changes.
+  function reindexTopic() {
+    void fetch('/api/ai/ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topicId: topic.id }) }).catch(() => {})
+  }
+
   async function generateNote() {
     setGenerating(true); setStreamText('')
     try {
@@ -119,6 +139,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
         const ext = await fetch('/api/ai/extract-note-sections', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topicId: topic.id, studyNote: full }) })
         if (ext.ok) { const s = await ext.json(); setTopicNote(prev => prev ? { ...prev, key_points: s.key_points, exam_tips: s.exam_tips } : prev); toast.success('Key points and exam tips ready') }
       } catch {} finally { setExtracting(false) }
+      reindexTopic()
     } catch { toast.error('Failed to generate note') } finally { setGenerating(false) }
   }
 
@@ -134,7 +155,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
     if (!annotationText.trim()) return
     const supabase = createClient()
     const { data } = await supabase.from('user_annotations').insert({ topic_id: topic.id, content: annotationText.trim(), annotation_type: 'note' }).select().single()
-    if (data) { setAnnotations(prev => [data, ...prev]); setAnnotationText(''); setShowAnnotation(false); toast.success('Note added') }
+    if (data) { setAnnotations(prev => [data, ...prev]); setAnnotationText(''); setShowAnnotation(false); toast.success('Note added'); reindexTopic() }
   }
 
   async function handleSourceFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -163,6 +184,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
     setUserSource(value || null)
     setEditingSource(false)
     toast.success('Source saved')
+    reindexTopic()
   }
 
   const notes = annotations.filter(a => a.annotation_type === 'note')
@@ -173,11 +195,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
     { key: 'note', label: 'AI note' }, { key: 'keypoints', label: 'Key points' }, { key: 'tips', label: 'Exam tips' },
   ]
 
-  if (selectedSubtopic) {
-    return <SubtopicDetail topic={topic} subtopic={selectedSubtopic} onBack={() => setSelectedSubtopic(null)} />
-  }
-
-  return (
+  const topicView = (
     <div>
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
@@ -340,8 +358,8 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
           {(studyTab === 'note' || studyTab === 'source' || studyTab === 'your_source') && (
             <div className="fixed bottom-16 md:bottom-4 left-0 right-0 md:left-60 flex justify-center px-4 pointer-events-none z-30">
               <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl px-3 py-2 flex items-center gap-2 shadow-sm pointer-events-auto">
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" onClick={() => openChat(topic.id, topic.name)}><MessageSquare size={14} />Ask AI</button>
-                <div className="w-px h-4 bg-gray-200 dark:bg-[#30363D]" />
+                <button className="xl:hidden flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" onClick={() => openChat(topic.id, topic.name)}><MessageSquare size={14} />Ask AI</button>
+                <div className="xl:hidden w-px h-4 bg-gray-200 dark:bg-[#30363D]" />
                 <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 rounded-lg transition-colors" onClick={() => setShowAnnotation(true)}><Plus size={14} />Add note</button>
                 <div className="w-px h-4 bg-gray-200 dark:bg-[#30363D]" />
                 <button onClick={() => handleStatusChange('done')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-brand-600 hover:bg-brand-800 rounded-lg transition-colors">Mark done</button>
@@ -354,5 +372,30 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
       {popover && <HighlightPopover popover={popover} onPick={pick} onRemove={removeHighlight} />}
       <ScrollToTop />
     </div>
+  )
+
+  const left = selectedSubtopic
+    ? <SubtopicDetail topic={topic} subtopic={selectedSubtopic} onBack={() => setSelectedSubtopic(null)} />
+    : topicView
+
+  return (
+    <>
+      {left}
+
+      {/* Reopen tab when the desktop rail is hidden (xl only) */}
+      {!docked && (
+        <button
+          onClick={() => dock(topic.id, topic.name)}
+          aria-label="Show AI chat"
+          title="Show AI chat"
+          className="group hidden xl:flex fixed right-0 top-1/2 -translate-y-1/2 z-30 flex-col items-center gap-2.5 pl-2 pr-1.5 py-4 rounded-l-2xl bg-brand-600 text-white shadow-lg ring-1 ring-black/5 hover:bg-brand-800 hover:pr-2.5 transition-[background-color,padding] duration-200 animate-in fade-in slide-in-from-right-2 motion-reduce:animate-none"
+        >
+          <span className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/25 transition-colors">
+            <Sparkles size={16} strokeWidth={2.2} />
+          </span>
+          <span className="text-[10px] font-bold tracking-[0.15em] [writing-mode:vertical-rl] rotate-180">ASK&nbsp;AI</span>
+        </button>
+      )}
+    </>
   )
 }

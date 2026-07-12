@@ -126,6 +126,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
   const [userSources, setUserSources] = useState<LanguageContent>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [userKeyPoints, setUserKeyPoints] = useState<{ content: string; file_name: string | null } | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [editingKeyPoints, setEditingKeyPoints] = useState(false)
   const [keyPointsDraft, setKeyPointsDraft] = useState('')
   const [keyPointsDraftFileName, setKeyPointsDraftFileName] = useState<string | null>(null)
@@ -145,7 +146,8 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const [{ data: note }, { data: anns }, subs, { data: progress }, { data: officialRows }, { data: userRows }, { data: keyPoints }] = await Promise.all([
+      const [{ data: { user } }, { data: note }, { data: anns }, subs, { data: progress }, { data: officialRows }, { data: userRows }, { data: keyPoints }] = await Promise.all([
+        supabase.auth.getUser(),
         supabase.from('topic_notes').select('*').eq('topic_id', topic.id).maybeSingle(),
         supabase.from('user_annotations').select('*').eq('topic_id', topic.id).order('created_at', { ascending: false }),
         fetchSubtopics(topic.id),
@@ -155,6 +157,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
         supabase.from('user_topic_key_notes').select('content,file_name').eq('topic_id', topic.id).maybeSingle(),
       ])
       setTopicNote(note)
+      setUserId(user?.id ?? null)
       setAnnotations(anns ?? [])
       setSubtopics(subs)
       setResume(progress ? { tab: progress.last_read_tab, scroll: progress.last_read_scroll } : null)
@@ -240,14 +243,13 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
       return
     }
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    if (!userId) {
       setSavingSource(false)
       toast.error('Please sign in to save source')
       return
     }
     const { error } = await supabase.from('user_topic_source_files').upsert(
-      { user_id: user.id, topic_id: topic.id, language: sourceLanguage, content: value, file_name: sourceDraftFileName, updated_at: new Date().toISOString() },
+      { user_id: userId, topic_id: topic.id, language: sourceLanguage, content: value, file_name: sourceDraftFileName, updated_at: new Date().toISOString() },
       { onConflict: 'user_id,topic_id,language' },
     )
     setSavingSource(false)
@@ -280,14 +282,13 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
       return
     }
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    if (!userId) {
       setSavingKeyPoints(false)
       toast.error('Please sign in to save key points')
       return
     }
     const { error } = await supabase.from('user_topic_key_notes').upsert(
-      { user_id: user.id, topic_id: topic.id, content: value, file_name: keyPointsDraftFileName, updated_at: new Date().toISOString() },
+      { user_id: userId, topic_id: topic.id, content: value, file_name: keyPointsDraftFileName, updated_at: new Date().toISOString() },
       { onConflict: 'user_id,topic_id' },
     )
     setSavingKeyPoints(false)

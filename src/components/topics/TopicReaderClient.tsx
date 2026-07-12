@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ArrowLeft, MessageSquare, Plus, Upload, Loader2, Pencil, BookOpenText, Trash2, X, ListTree } from 'lucide-react'
 import { useChatActions } from '@/components/ai/ChatProvider'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { StatusToggle } from '@/components/shared/StatusToggle'
 import { PaperBadge } from '@/components/shared/PaperBadge'
 import { LoadingStream, StreamingSkeleton } from '@/components/shared/LoadingStream'
@@ -20,9 +21,6 @@ import { SimplifiableContent } from '@/components/shared/SimplifiableContent'
 import { ScrollToTop } from '@/components/shared/ScrollToTop'
 import { SourceMeta } from '@/components/shared/SourceMeta'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { RecallTab } from '@/components/topics/RecallTab'
-import { ExplainTab } from '@/components/topics/ExplainTab'
-import { DrillItTab } from '@/components/topics/DrillItTab'
 import { HIGHLIGHT_COLORS, HL_MARK_SELECTOR, applyHighlights, clearHighlights, describeSelection, type StoredHighlight } from '@/lib/highlight'
 import type { Topic, TopicNote, UserAnnotation, TopicStatus, ReadingPosition } from '@/types/database'
 
@@ -56,9 +54,14 @@ interface Props {
   note: TopicNote | null
   annotations: UserAnnotation[]
   resume: ReadingPosition | null
+  userId: string | null
 }
 
-export function TopicReaderClient({ topic, note: initialNote, annotations: initialAnnotations, resume }: Props) {
+const RecallTab = dynamic(() => import('@/components/topics/RecallTab').then(mod => mod.RecallTab))
+const ExplainTab = dynamic(() => import('@/components/topics/ExplainTab').then(mod => mod.ExplainTab))
+const DrillItTab = dynamic(() => import('@/components/topics/DrillItTab').then(mod => mod.DrillItTab))
+
+export function TopicReaderClient({ topic, note: initialNote, annotations: initialAnnotations, resume, userId }: Props) {
   const [tab, setTab] = useState<Tab>(initialNote?.official_source ? 'source' : 'note')
   const [note, setNote] = useState<TopicNote | null>(initialNote)
   const [annotations, setAnnotations] = useState(initialAnnotations)
@@ -177,14 +180,13 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
       return
     }
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    if (!userId) {
       setSavingSource(false)
       toast.error('Please sign in to save source')
       return
     }
     const { error } = await supabase.from('user_topic_source_files').upsert({
-      user_id: user.id,
+      user_id: userId,
       topic_id: topic.id,
       language: sourceLanguage,
       content: value,
@@ -229,14 +231,13 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
       return
     }
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    if (!userId) {
       setSavingKeyPoints(false)
       toast.error('Please sign in to save key points')
       return
     }
     const { error } = await supabase.from('user_topic_key_notes').upsert({
-      user_id: user.id,
+      user_id: userId,
       topic_id: topic.id,
       content: value,
       file_name: keyPointsDraftFileName,

@@ -12,9 +12,10 @@ export default async function SectionPage({ params }: { params: Promise<{ sectio
   const { data: section } = await supabase.from('exam_sections').select('*').eq('id', sectionId).maybeSingle()
   if (!section) notFound()
 
-  const [{ data: rawTopics }, { data: keyPoints }, { data: legacyUserSrcs }, { data: userSrcs }] = await Promise.all([
+  const [{ data: rawTopics }, { data: keyPoints }, { data: userKeyNotes }, { data: legacyUserSrcs }, { data: userSrcs }] = await Promise.all([
     supabase.from('topics').select(TOPIC_WITH_PROGRESS).eq('section_id', sectionId).order('topic_number'),
     supabase.from('topic_notes').select('topic_id,key_points'),
+    supabase.from('user_topic_key_notes').select('topic_id,content'),
     supabase.from('user_topic_sources').select('topic_id'),
     supabase.from('user_topic_source_files').select('topic_id'),
   ])
@@ -30,6 +31,9 @@ export default async function SectionPage({ params }: { params: Promise<{ sectio
       .filter(kp => topicIds.has(kp.topic_id))
       .map(kp => [kp.topic_id, kp.key_points]),
   )
+  for (const keyNote of userKeyNotes ?? []) {
+    if (topicIds.has(keyNote.topic_id)) keyPointsByTopic.set(keyNote.topic_id, keyNote.content)
+  }
   const tkp = Array.from(keyPointsByTopic, ([topic_id, key_points]) => ({ topic_id, key_points }))
 
   if (section.kind === 'mcq_study') {

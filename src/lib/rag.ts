@@ -79,12 +79,13 @@ interface Logical { source_type: string; user_id: string | null; content: string
  * are skipped; changed ones are replaced (delete + re-embed) so nothing goes stale.
  */
 export async function ingestTopic(service: Service, topicId: string): Promise<{ inserted: number; sources: number }> {
-  const [{ data: note }, { data: adminSources }, { data: anns }, { data: legacyUserSources }, { data: userSources }] = await Promise.all([
+  const [{ data: note }, { data: adminSources }, { data: anns }, { data: legacyUserSources }, { data: userSources }, { data: userKeyNotes }] = await Promise.all([
     service.from('topic_notes').select('study_note,key_points,exam_tips,official_source,model_answer_5mark,model_answer_10mark').eq('topic_id', topicId).maybeSingle(),
     service.from('topic_source_files').select('content,language').eq('topic_id', topicId),
     service.from('user_annotations').select('content,user_id').eq('topic_id', topicId).eq('annotation_type', 'note'),
     service.from('user_topic_sources').select('content,user_id').eq('topic_id', topicId),
     service.from('user_topic_source_files').select('content,user_id,language').eq('topic_id', topicId),
+    service.from('user_topic_key_notes').select('content,user_id').eq('topic_id', topicId),
   ])
 
   const items: Logical[] = []
@@ -111,6 +112,7 @@ export async function ingestTopic(service: Service, topicId: string): Promise<{ 
   for (const s of legacyUserSources ?? []) {
     if (!s.user_id || !usersWithEnglishSource.has(s.user_id)) push('user_source', s.content, s.user_id ?? null)
   }
+  for (const k of userKeyNotes ?? []) push('user_key_points', k.content, k.user_id ?? null)
 
   // Merge into one logical source per (source_type, user) so replace-per-source is clean.
   const groups = new Map<string, Logical>()

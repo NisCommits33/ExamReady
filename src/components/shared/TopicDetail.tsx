@@ -125,6 +125,13 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
   const [officialSources, setOfficialSources] = useState<LanguageContent>({})
   const [userSources, setUserSources] = useState<LanguageContent>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [userKeyPoints, setUserKeyPoints] = useState<{ content: string; file_name: string | null } | null>(null)
+  const [editingKeyPoints, setEditingKeyPoints] = useState(false)
+  const [keyPointsDraft, setKeyPointsDraft] = useState('')
+  const [keyPointsDraftFileName, setKeyPointsDraftFileName] = useState<string | null>(null)
+  const [uploadingKeyPoints, setUploadingKeyPoints] = useState(false)
+  const [savingKeyPoints, setSavingKeyPoints] = useState(false)
+  const keyPointsFileInputRef = useRef<HTMLInputElement>(null)
 
   function setSourceLanguage(language: SourceLanguage) {
     setSourceLanguageState(language)
@@ -138,13 +145,14 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const [{ data: note }, { data: anns }, subs, { data: progress }, { data: officialRows }, { data: userRows }] = await Promise.all([
+      const [{ data: note }, { data: anns }, subs, { data: progress }, { data: officialRows }, { data: userRows }, { data: keyPoints }] = await Promise.all([
         supabase.from('topic_notes').select('*').eq('topic_id', topic.id).maybeSingle(),
         supabase.from('user_annotations').select('*').eq('topic_id', topic.id).order('created_at', { ascending: false }),
         fetchSubtopics(topic.id),
         supabase.from('user_topic_progress').select('last_read_tab,last_read_scroll').eq('topic_id', topic.id).maybeSingle(),
         supabase.from('topic_source_files').select('language,content,file_name').eq('topic_id', topic.id),
         supabase.from('user_topic_source_files').select('language,content,file_name').eq('topic_id', topic.id),
+        supabase.from('user_topic_key_notes').select('content,file_name').eq('topic_id', topic.id).maybeSingle(),
       ])
       setTopicNote(note)
       setAnnotations(anns ?? [])
@@ -160,6 +168,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
       }
       setOfficialSources(nextOfficial)
       setUserSources(nextUser)
+      setUserKeyPoints(keyPoints?.content ? { content: keyPoints.content, file_name: keyPoints.file_name ?? null } : null)
       if (note?.official_source || Object.keys(nextOfficial).length > 0) setStudyTab('source')
       else setStudyTab('note')
     }
@@ -231,8 +240,14 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
       return
     }
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setSavingSource(false)
+      toast.error('Please sign in to save source')
+      return
+    }
     const { error } = await supabase.from('user_topic_source_files').upsert(
-      { topic_id: topic.id, language: sourceLanguage, content: value, file_name: sourceDraftFileName, updated_at: new Date().toISOString() },
+      { user_id: user.id, topic_id: topic.id, language: sourceLanguage, content: value, file_name: sourceDraftFileName, updated_at: new Date().toISOString() },
       { onConflict: 'user_id,topic_id,language' },
     )
     setSavingSource(false)
@@ -243,10 +258,51 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
     reindexTopic()
   }
 
+  async function handleKeyPointsFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (e.target) e.target.value = ''
+    if (!file) return
+    setUploadingKeyPoints(true)
+    try {
+      const text = await readMarkdownFile(file)
+      setKeyPointsDraft(text.trim())
+      setKeyPointsDraftFileName(file.name)
+      toast.success('Markdown loaded — review and save')
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Could not read file') } finally { setUploadingKeyPoints(false) }
+  }
+
+  async function saveKeyPoints() {
+    setSavingKeyPoints(true)
+    const value = keyPointsDraft.trim()
+    if (!value) {
+      setSavingKeyPoints(false)
+      toast.error('Key points cannot be empty')
+      return
+    }
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setSavingKeyPoints(false)
+      toast.error('Please sign in to save key points')
+      return
+    }
+    const { error } = await supabase.from('user_topic_key_notes').upsert(
+      { user_id: user.id, topic_id: topic.id, content: value, file_name: keyPointsDraftFileName, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,topic_id' },
+    )
+    setSavingKeyPoints(false)
+    if (error) { toast.error('Failed to save key points'); return }
+    setUserKeyPoints({ content: value, file_name: keyPointsDraftFileName })
+    setEditingKeyPoints(false)
+    toast.success('Key points saved')
+    reindexTopic()
+  }
+
   const notes = annotations.filter(a => a.annotation_type === 'note')
   const selectedOfficialSource = officialSources[sourceLanguage]?.content ?? (sourceLanguage === 'en' ? topicNote?.official_source ?? null : null)
   const selectedUserSource = userSources[sourceLanguage]?.content ?? null
   const selectedUserSourceFileName = userSources[sourceLanguage]?.file_name ?? null
+  const effectiveKeyPoints = userKeyPoints?.content ?? topicNote?.key_points ?? null
   const studyTabs: { key: StudyTab; label: string }[] = [
     { key: 'source' as StudyTab, label: 'Official source' },
     { key: 'your_source', label: 'Your source' },
@@ -284,7 +340,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
   useEffect(() => {
     const frame = requestAnimationFrame(refreshTocItems)
     return () => cancelAnimationFrame(frame)
-  }, [studyTab, topicNote, officialSources, userSources, sourceLanguage, generating, extracting, streamText, refreshTocItems])
+  }, [studyTab, topicNote, officialSources, userSources, userKeyPoints, sourceLanguage, generating, extracting, streamText, refreshTocItems])
 
   function jumpToTocItem(id: string) {
     setTocOpen(false)
@@ -520,10 +576,43 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
             <div>
               {extracting ? (
                 <div className="py-12 text-center"><div className="w-5 h-5 border-2 border-gray-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-3" /><p className="text-sm text-gray-400">Extracting key points…</p></div>
-              ) : topicNote?.key_points ? (
-                <Markdown headingIdPrefix={headingIdPrefix}>{topicNote.key_points}</Markdown>
+              ) : editingKeyPoints ? (
+                <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-[#30363D] dark:bg-[#161B22]">
+                  <input ref={keyPointsFileInputRef} type="file" accept=".md,.markdown,text/markdown" onChange={handleKeyPointsFile} className="hidden" />
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <button onClick={() => keyPointsFileInputRef.current?.click()} disabled={uploadingKeyPoints} className="flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-medium text-brand-600 transition-colors hover:bg-brand-50 disabled:opacity-50 dark:border-brand-800 dark:hover:bg-brand-900/20 sm:justify-start">
+                      {uploadingKeyPoints ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+                      {uploadingKeyPoints ? 'Reading…' : 'Upload MD'}
+                    </button>
+                    <span className="text-xs text-gray-400">{keyPointsDraftFileName ?? userKeyPoints?.file_name ?? 'Markdown key points'}</span>
+                  </div>
+                  <textarea value={keyPointsDraft} onChange={e => { setKeyPointsDraft(e.target.value); setKeyPointsDraftFileName(null) }} rows={12} placeholder="Paste key points Markdown here, or upload a .md file..." className="w-full resize-y rounded-lg border border-gray-200 p-3 font-mono text-sm text-gray-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-400/30 dark:border-[#30363D] dark:bg-transparent dark:text-gray-100" />
+                  <div className="mt-3 flex justify-end gap-2">
+                    <button onClick={() => { setEditingKeyPoints(false); setKeyPointsDraft(userKeyPoints?.content ?? '') }} className="min-h-9 rounded-md px-3 py-1.5 text-xs text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-[#1C2128]">Cancel</button>
+                    <button onClick={saveKeyPoints} disabled={savingKeyPoints || uploadingKeyPoints} className="flex min-h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-800 disabled:opacity-50">
+                      {savingKeyPoints && <Loader2 size={13} className="animate-spin" />} Save
+                    </button>
+                  </div>
+                </div>
+              ) : effectiveKeyPoints ? (
+                <div>
+                  <div className="mb-4 flex flex-col gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-[#30363D] dark:bg-[#1C2128] sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {userKeyPoints ? 'Your uploaded key points' : 'AI extracted key points'}
+                      {userKeyPoints?.file_name ? <span className="ml-1 text-gray-400">· {userKeyPoints.file_name}</span> : null}
+                    </span>
+                    <button onClick={() => { setKeyPointsDraft(userKeyPoints?.content ?? topicNote?.key_points ?? ''); setKeyPointsDraftFileName(userKeyPoints?.file_name ?? null); setEditingKeyPoints(true) }} className="flex min-h-9 flex-shrink-0 items-center gap-1 self-start rounded-md px-2 text-xs font-medium text-brand-600 transition-colors hover:bg-brand-50 hover:text-brand-800 dark:hover:bg-brand-900/20 sm:self-auto">
+                      {userKeyPoints ? <><Pencil size={13} /> Edit</> : <><Upload size={13} /> Upload MD</>}
+                    </button>
+                  </div>
+                  <Markdown headingIdPrefix={headingIdPrefix}>{effectiveKeyPoints}</Markdown>
+                </div>
               ) : (
-                <div className="py-12 text-center"><p className="text-sm text-gray-400 mb-1">No key points yet</p><p className="text-xs text-gray-400">Generate the study note to populate this tab automatically</p></div>
+                <div className="py-12 text-center">
+                  <p className="text-sm text-gray-400 mb-1">No key points yet</p>
+                  <p className="text-xs text-gray-400 mb-4">Generate the study note or upload Markdown key points.</p>
+                  <button onClick={() => { setKeyPointsDraft(''); setKeyPointsDraftFileName(null); setEditingKeyPoints(true) }} className="min-h-10 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-brand-800 active:scale-[0.98]">Upload Markdown</button>
+                </div>
               )}
             </div>
           )}

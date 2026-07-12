@@ -212,11 +212,20 @@ export function ARFFMockExam({ topics, allScores, onBack }: Props) {
   const timerColor = timeLeft > 30 * 60 ? 'text-success-500' : timeLeft > 15 * 60 ? 'text-warning-500' : 'text-danger-500'
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+    <div className="w-full min-w-0 overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div
+          className="grid max-w-full grid-cols-[repeat(auto-fill,minmax(2rem,1fr))] gap-2 sm:flex sm:overflow-x-auto sm:pb-1 [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]"
+          aria-label="Question navigation"
+        >
           {questions.map((_, i) => (
-            <button key={i} onClick={() => setCurrentQ(i)} className={cn('w-7 h-7 rounded-full text-xs font-medium transition-all', i === currentQ ? 'bg-teal-400 text-white' : questions[i].userAnswer ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400' : 'bg-gray-100 dark:bg-[#1C2128] text-gray-500')}>
+            <button
+              key={i}
+              onClick={() => setCurrentQ(i)}
+              aria-label={`Go to question ${i + 1}`}
+              aria-current={i === currentQ ? 'step' : undefined}
+              className={cn('h-8 w-full rounded-full px-2 text-xs font-medium transition-all sm:min-w-8 sm:w-auto', i === currentQ ? 'bg-teal-500 text-white shadow-sm' : questions[i].userAnswer ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400' : 'bg-gray-100 dark:bg-[#1C2128] text-gray-500 hover:bg-gray-200 dark:hover:bg-[#30363D]')}
+            >
               {i + 1}
             </button>
           ))}

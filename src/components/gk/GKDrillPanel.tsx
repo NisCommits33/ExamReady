@@ -47,6 +47,12 @@ export function GKDrillPanel({ topic, subtopic, section }: Props) {
     if (topic && !subtopic) fetchSubtopics(topic.id).then(s => setSubOptions(s.map(x => ({ id: x.id, name: x.name })))).catch(() => {})
   }, [topic, subtopic])
 
+  useEffect(() => {
+    return () => {
+      if (timerRef) clearInterval(timerRef)
+    }
+  }, [timerRef])
+
   const effectiveSubId = subtopic?.id ?? (subId || undefined)
   const effectiveSubName = subtopic?.name ?? subOptions.find(s => s.id === subId)?.name
 
@@ -86,36 +92,69 @@ export function GKDrillPanel({ topic, subtopic, section }: Props) {
       }
       setQuestions(qs.slice(0, count))
       setPhase('question')
-      const ref = setInterval(() => setElapsed(e => e + 1), 1000); setTimerRef(ref)
+      startTimer()
     } catch {
       toast.error('Failed to load questions'); setPhase('setup')
     }
   }
 
+  function stopTimer() {
+    if (timerRef) clearInterval(timerRef)
+    setTimerRef(null)
+  }
+
+  function startTimer() {
+    const ref = setInterval(() => setElapsed(e => e + 1), 1000)
+    setTimerRef(ref)
+  }
+
+  function finishDrill(finalResults: { correct: boolean }[]) {
+    setResults(finalResults)
+    setPhase('done')
+    stopTimer()
+    if (!savedRef.current) {
+      savedRef.current = true
+      const correct = finalResults.filter(r => r.correct).length
+      saveDrillResult({ section: 'gk', topicId: topic?.id ?? null, subtopicId: effectiveSubId ?? null, topicName: topic?.name ?? null, score: correct, total: finalResults.length })
+    }
+  }
+
+  function advanceQuestion() {
+    setQIndex(i => i + 1)
+    setSelected(null)
+    setPhase('question')
+    setElapsed(0)
+    startTimer()
+  }
+
   function selectAnswer(opt: string) {
     if (phase !== 'question') return
-    if (timerRef) clearInterval(timerRef)
-    setSelected(opt); setPhase('answered')
-    setResults(prev => [...prev, { correct: opt === questions[qIndex].correct }])
+    stopTimer()
+    const isCorrect = opt === questions[qIndex].correct
+    const nextResults = [...results, { correct: isCorrect }]
+    setResults(nextResults)
+
+    if (isCorrect) {
+      setSelected(opt)
+      setPhase('answered')
+      return
+    }
+
+    setSelected(opt)
+    setPhase('answered')
   }
 
   function next() {
     if (qIndex + 1 >= questions.length) {
-      setPhase('done')
-      if (!savedRef.current) {
-        savedRef.current = true
-        const correct = results.filter(r => r.correct).length
-        saveDrillResult({ section: 'gk', topicId: topic?.id ?? null, subtopicId: effectiveSubId ?? null, topicName: topic?.name ?? null, score: correct, total: results.length })
-      }
+      finishDrill(results)
       return
     }
-    setQIndex(i => i + 1); setSelected(null); setPhase('question'); setElapsed(0)
-    const ref = setInterval(() => setElapsed(e => e + 1), 1000); setTimerRef(ref)
+    advanceQuestion()
   }
 
   // ── Setup ───────────────────────────────────────────────
   if (phase === 'setup') return (
-    <div className="space-y-4 py-2">
+    <div className="w-full min-w-0 overflow-hidden space-y-4 py-2">
       {!subtopic && subOptions.length > 0 && (
         <Field label="Subtopic">
           <select value={subId} onChange={e => setSubId(e.target.value)} className="w-full text-sm border border-gray-200 dark:border-[#30363D] dark:bg-[#1C2128] dark:text-gray-200 rounded-lg px-2 py-2 focus:outline-none">
@@ -175,15 +214,34 @@ export function GKDrillPanel({ topic, subtopic, section }: Props) {
 
   const q = questions[qIndex]
   const opts = ['A', 'B', 'C', 'D'] as const
+  const progressPct = questions.length > 0 ? (results.length / questions.length) * 100 : 0
+  const correctOpt = q?.correct
+  const correctText = correctOpt ? q?.options[correctOpt] : null
+  const lastCorrect = results[results.length - 1]?.correct
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-1">
-          {questions.map((_, i) => <div key={i} className={cn('w-6 h-1 rounded-full transition-colors', i <= qIndex ? 'bg-brand-400' : 'bg-gray-200 dark:bg-gray-700')} />)}
+    <div className="w-full min-w-0 overflow-hidden">
+      <div className="mb-5 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            Question {qIndex + 1} of {questions.length}
+          </span>
+          <div className={cn('flex items-center gap-1 text-xs font-mono tabular-nums', elapsed >= 54 ? 'text-danger-400' : 'text-gray-400')}>
+            <Timer size={12} />{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}
+          </div>
         </div>
-        <div className={cn('flex items-center gap-1 text-xs font-mono tabular-nums', elapsed >= 54 ? 'text-danger-400' : 'text-gray-400')}>
-          <Timer size={12} />{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}
+        <div
+          className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+          role="progressbar"
+          aria-valuenow={results.length}
+          aria-valuemin={0}
+          aria-valuemax={questions.length}
+          aria-label="Drill progress"
+        >
+          <div
+            className="h-full rounded-full bg-brand-500 transition-[width] duration-200 ease-out"
+            style={{ width: `${progressPct}%` }}
+          />
         </div>
       </div>
 
@@ -219,12 +277,24 @@ export function GKDrillPanel({ topic, subtopic, section }: Props) {
 
       {phase === 'answered' && q && (
         <div className="mt-4">
-          <div className={cn('rounded-xl p-4 mb-3', results[results.length - 1]?.correct ? 'bg-success-50 dark:bg-green-900/20' : 'bg-danger-50 dark:bg-red-900/20')}>
-            <p className={cn('text-xs font-semibold mb-1 uppercase tracking-wide', results[results.length - 1]?.correct ? 'text-success-400' : 'text-danger-400')}>
-              {results[results.length - 1]?.correct ? 'Correct' : 'Incorrect'}
-            </p>
-            {q.explanation && <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{q.explanation}</p>}
-          </div>
+          {lastCorrect ? (
+            <div className="rounded-xl bg-success-50 dark:bg-green-900/20 p-4 mb-3" role="status" aria-live="polite">
+              <p className="text-xs font-semibold mb-1 uppercase tracking-wide text-success-600 dark:text-success-400">
+                Correct
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-xl bg-danger-50 dark:bg-red-900/20 p-4 mb-3">
+              <p className="text-xs font-semibold mb-2 uppercase tracking-wide text-danger-500 dark:text-danger-400">
+                Incorrect
+              </p>
+              {correctOpt && correctText && (
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Correct answer: {correctOpt}. {correctText}
+                </p>
+              )}
+            </div>
+          )}
           <button onClick={next} className="w-full py-3 bg-brand-600 text-white text-sm font-medium rounded-xl hover:bg-brand-800 transition-colors active:scale-[0.98]">
             {qIndex + 1 >= questions.length ? 'See results' : 'Next →'}
           </button>

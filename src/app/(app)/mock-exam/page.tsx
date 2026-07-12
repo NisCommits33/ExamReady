@@ -17,7 +17,7 @@ export default async function MockExamPage() {
 
   const cfg = active.exam.config ?? {}
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="w-full min-w-0 max-w-2xl mx-auto overflow-hidden">
       <MockExamClient
         examId={active.exam.id}
         examName={active.exam.name}

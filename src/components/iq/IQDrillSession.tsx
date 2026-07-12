@@ -136,6 +136,7 @@ export function IQDrillSession({ type, onBack }: Props) {
   const q = questions[qIndex]
   const opts = ['A', 'B', 'C', 'D'] as const
   const overTime = elapsed >= IQ_TIME_TARGET_S
+  const progressPct = questions.length > 0 ? ((qIndex + 1) / questions.length) * 100 : 0
 
   if (phase === 'loading') return (
     <div className="py-20 text-center">
@@ -150,7 +151,7 @@ export function IQDrillSession({ type, onBack }: Props) {
     const sureResults = results.filter(r => r.confidence === 'sure')
     const sureCorrect = sureResults.filter(r => r.correct).length
     return (
-      <div>
+      <div className="w-full min-w-0 overflow-hidden">
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-400 mb-6 hover:text-gray-600 transition-colors">
           <ArrowLeft size={16} /> Back to types
         </button>
@@ -180,20 +181,33 @@ export function IQDrillSession({ type, onBack }: Props) {
   }
 
   return (
-    <div>
+    <div className="w-full min-w-0 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="mb-5 space-y-2">
+        <div className="flex items-center justify-between gap-3">
         <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
           <X size={18} />
         </button>
-        <div className="flex items-center gap-2">
-          {questions.map((_, i) => (
-            <div key={i} className={cn('w-1.5 h-1.5 rounded-full transition-colors', i < qIndex ? 'bg-brand-400' : i === qIndex ? 'bg-brand-600' : 'bg-gray-200')} />
-          ))}
-        </div>
+        <span className="min-w-0 flex-1 text-center text-xs font-medium text-gray-500 dark:text-gray-400">
+          Question {qIndex + 1} of {questions.length}
+        </span>
         <div className={cn('flex items-center gap-1 text-xs font-mono tabular-nums', overTime ? 'text-danger-400' : 'text-gray-400')}>
           <Timer size={12} />
           {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}
+        </div>
+        </div>
+        <div
+          className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+          role="progressbar"
+          aria-valuenow={qIndex + 1}
+          aria-valuemin={1}
+          aria-valuemax={questions.length}
+          aria-label="IQ drill progress"
+        >
+          <div
+            className="h-full rounded-full bg-brand-500 transition-[width] duration-200 ease-out"
+            style={{ width: `${progressPct}%` }}
+          />
         </div>
       </div>
 

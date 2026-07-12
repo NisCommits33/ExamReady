@@ -183,8 +183,8 @@ export function MockExamClient({ examId, examName, negativeMarking, passMark, se
   const timerColor = timeLeft > totalTime * 0.5 ? 'text-success-500' : timeLeft > totalTime * 0.2 ? 'text-warning-500' : 'text-danger-500'
 
   return (
-    <div className="py-2">
-      <div className="flex items-center justify-between mb-4">
+    <div className="w-full min-w-0 overflow-hidden py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <span className="text-xs text-gray-400">{answeredCount}/{questions.length} answered</span>
         <div className={cn('flex items-center gap-1 text-sm font-mono tabular-nums', timerColor)}>
           <Timer size={14} />{mins}:{String(secs).padStart(2, '0')}
@@ -192,14 +192,21 @@ export function MockExamClient({ examId, examName, negativeMarking, passMark, se
       </div>
 
       {/* Question palette */}
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {questions.map((_, i) => (
-          <button key={i} onClick={() => setCurrent(i)}
-            className={cn('w-7 h-7 rounded-md text-xs font-medium transition-all',
-              i === current ? 'bg-brand-600 text-white' : answers[i] ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400' : 'bg-gray-100 dark:bg-[#1C2128] text-gray-500')}>
-            {i + 1}
-          </button>
-        ))}
+      <div className="mb-4 w-full min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white/70 p-2 dark:border-[#30363D] dark:bg-[#161B22]/70">
+        <div
+          className="grid max-h-28 w-full grid-cols-[repeat(auto-fill,minmax(2rem,1fr))] gap-1.5 overflow-y-auto pr-1 [scrollbar-width:thin] sm:flex sm:max-h-none sm:max-w-full sm:overflow-x-auto sm:overflow-y-hidden sm:pb-1 sm:pr-0 [-webkit-overflow-scrolling:touch]"
+          aria-label="Question navigation"
+        >
+          {questions.map((_, i) => (
+            <button key={i} onClick={() => setCurrent(i)}
+              aria-label={`Go to question ${i + 1}`}
+              aria-current={i === current ? 'step' : undefined}
+              className={cn('h-8 w-full rounded-lg px-2 text-xs font-medium transition-all sm:min-w-8 sm:w-auto',
+                i === current ? 'bg-brand-600 text-white shadow-sm' : answers[i] ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400' : 'bg-gray-100 dark:bg-[#1C2128] text-gray-500 hover:bg-gray-200 dark:hover:bg-[#30363D]')}>
+              {i + 1}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="bg-gray-50 dark:bg-[#1C2128] rounded-xl p-5 mb-4">

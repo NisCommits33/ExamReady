@@ -1,5 +1,5 @@
-import { DetailSkeleton } from '@/components/ui/skeletons'
+import { TopicReaderSkeleton } from '@/components/ui/skeletons'
 
 export default function Loading() {
-  return <DetailSkeleton />
+  return <TopicReaderSkeleton />
 }

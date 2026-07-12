@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/ui/Markdown'
+import { ContentSkeleton } from '@/components/ui/skeletons'
 
 interface LoadingStreamProps {
   text: string
@@ -22,10 +23,9 @@ export function LoadingStream({ text, className, streaming }: LoadingStreamProps
 
 export function StreamingSkeleton() {
   return (
-    <div className="space-y-3 animate-pulse">
-      {[100, 90, 75, 95, 60, 80].map((w, i) => (
-        <div key={i} className="h-3 bg-gray-200 rounded-full" style={{ width: `${w}%` }} />
-      ))}
+    <div aria-busy="true" aria-live="polite">
+      <span className="sr-only" role="status">Generating content</span>
+      <ContentSkeleton lines={6} />
     </div>
   )
 }

@@ -242,12 +242,15 @@ export function TimetableClient({ initialPlanned, shifts: initialShifts, session
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 size={20} className="animate-spin text-gray-400" />
-        </div>
-      ) : (
-        <>
+      <div className="relative" aria-busy={loading}>
+        {loading && (
+          <div className="absolute inset-x-0 top-2 z-20 flex justify-center" role="status" aria-live="polite">
+            <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/95 px-3 py-1.5 text-xs text-gray-600 shadow-sm dark:border-[#30363D] dark:bg-[#161B22]/95 dark:text-gray-300">
+              <Loader2 size={13} className="animate-spin" /> Loading week...
+            </span>
+          </div>
+        )}
+        <div className={cn('transition-opacity duration-150', loading && 'pointer-events-none opacity-60')}>
           {/* ---- Desktop / tablet: full 7-day grid ---- */}
           <div className="hidden md:block rounded-xl border border-gray-200 dark:border-[#30363D] overflow-hidden">
             <div className="flex border-b border-gray-200 dark:border-[#30363D] bg-gray-50 dark:bg-[#0D1117]">
@@ -344,8 +347,8 @@ export function TimetableClient({ initialPlanned, shifts: initialShifts, session
               <><span className="text-[11px] font-semibold bg-purple-50 text-purple-800 px-1.5 py-0.5 rounded-full">AI</span> Replan this week</>
             )}
           </button>
-        </>
-      )}
+        </div>
+      </div>
 
       <SessionPlanSheet
         open={sheetOpen}

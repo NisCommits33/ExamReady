@@ -1,10 +1,12 @@
 import { cn } from '@/lib/utils'
+import type { CSSProperties } from 'react'
 
-export function Skeleton({ className }: { className?: string }) {
+export function Skeleton({ className, style }: { className?: string; style?: CSSProperties }) {
   return (
     <div
       aria-hidden="true"
-      className={cn('animate-pulse rounded-md bg-gray-200 dark:bg-[#1C2128] motion-reduce:animate-none', className)}
+      style={style}
+      className={cn('skeleton-shimmer rounded-md bg-gray-200 dark:bg-[#1C2128]', className)}
     />
   )
 }
@@ -126,6 +128,77 @@ export function TableSkeleton({ rows = 7 }: { rows?: number }) {
           </div>
         ))}
       </Surface>
+    </LoadingRegion>
+  )
+}
+
+export function ChartSkeleton({ bars = 12, className }: { bars?: number; className?: string }) {
+  return (
+    <Surface className={cn('rounded-xl p-4', className)}>
+      <div className="mb-5 flex items-center justify-between"><Skeleton className="h-4 w-36" /><Skeleton className="h-3 w-16" /></div>
+      <div className="flex h-40 items-end gap-2 border-b border-gray-100 dark:border-[#21262D]">
+        {Array.from({ length: bars }).map((_, i) => (
+          <Skeleton key={i} className="min-w-2 flex-1 rounded-b-none" style={{ height: `${35 + ((i * 23) % 55)}%` }} />
+        ))}
+      </div>
+    </Surface>
+  )
+}
+
+export function AnalyticsSkeleton() {
+  return (
+    <LoadingRegion label="Loading progress analytics" className="space-y-4">
+      <Skeleton className="h-5 w-24" />
+      <StatGridSkeleton />
+      <div className="grid gap-4 lg:grid-cols-2"><ChartBars /><ChartBars reverse /></div>
+      <Surface className="rounded-xl p-4"><Skeleton className="mb-4 h-4 w-32" /><ContentSkeleton lines={6} /></Surface>
+    </LoadingRegion>
+  )
+}
+
+function ChartBars({ reverse = false }: { reverse?: boolean }) {
+  const heights = reverse ? [45, 70, 35, 80, 55, 90, 65, 40] : [35, 55, 75, 45, 90, 60, 80, 50]
+  return (
+    <Surface className="rounded-xl p-4">
+      <Skeleton className="mb-5 h-4 w-36" />
+      <div className="flex h-40 items-end gap-2 border-b border-gray-100 dark:border-[#21262D]">
+        {heights.map((height, i) => <Skeleton key={i} className="flex-1 rounded-b-none" style={{ height: `${height}%` }} />)}
+      </div>
+    </Surface>
+  )
+}
+
+export function CalendarSkeleton() {
+  return (
+    <LoadingRegion label="Loading weekly timetable">
+      <div className="mb-4 flex items-center justify-between"><Skeleton className="h-5 w-24" /><Skeleton className="h-8 w-52 rounded-lg" /></div>
+      <Surface className="overflow-hidden rounded-xl">
+        <div className="grid grid-cols-7 border-b border-gray-200 dark:border-[#30363D]">
+          {Array.from({ length: 7 }).map((_, i) => <div key={i} className="border-l border-gray-100 p-3 first:border-0 dark:border-[#21262D]"><Skeleton className="mx-auto h-4 w-10" /></div>)}
+        </div>
+        <div className="grid min-h-[420px] grid-cols-7">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="space-y-4 border-l border-gray-100 p-2 first:border-0 dark:border-[#21262D]">
+              <Skeleton className={cn('h-16 w-full rounded-lg', i % 3 === 1 && 'mt-12', i % 3 === 2 && 'mt-24')} />
+              {i % 2 === 0 && <Skeleton className="h-20 w-full rounded-lg" />}
+            </div>
+          ))}
+        </div>
+      </Surface>
+    </LoadingRegion>
+  )
+}
+
+export function FormSkeleton() {
+  return (
+    <LoadingRegion label="Loading profile" className="mx-auto max-w-2xl">
+      <Skeleton className="mb-5 h-5 w-20" />
+      <Surface className="mb-4 flex min-h-28 items-start gap-4 rounded-xl p-5">
+        <Skeleton className="h-16 w-16 flex-none rounded-full" /><div className="flex-1 space-y-3"><Skeleton className="h-5 w-40" /><Skeleton className="h-4 w-56 max-w-full" /><Skeleton className="h-5 w-24 rounded-full" /></div>
+      </Surface>
+      <StatGridSkeleton />
+      <Surface className="mt-4 rounded-xl p-4"><Skeleton className="mb-4 h-4 w-40" /><Skeleton className="h-2 w-full rounded-full" /></Surface>
+      <Surface className="mt-4 overflow-hidden rounded-xl"><div className="space-y-3 p-5"><Skeleton className="h-4 w-36" /><Skeleton className="h-3 w-52" /></div><div className="border-t border-gray-100 p-5 dark:border-[#21262D]"><Skeleton className="h-10 w-full rounded-lg" /></div></Surface>
     </LoadingRegion>
   )
 }

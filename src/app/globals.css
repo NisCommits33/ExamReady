@@ -237,6 +237,22 @@
   .scrollbar-none { scrollbar-width: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
 
+  @keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .skeleton-shimmer {
+    background-image: linear-gradient(100deg, transparent 25%, rgb(255 255 255 / 0.45) 45%, transparent 65%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  }
+  .dark .skeleton-shimmer {
+    background-image: linear-gradient(100deg, transparent 25%, rgb(255 255 255 / 0.055) 45%, transparent 65%);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton-shimmer { animation: none; background-image: none; }
+  }
+
   /* ── Dark mode global overrides ─────────────────────────────────────────
      Specificity: .dark .utility (0,2,0) beats .utility (0,1,0)
      so these win over base Tailwind classes without !important.

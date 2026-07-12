@@ -6,6 +6,7 @@ import { Loader2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/skeletons'
 
 interface Props {
   open: boolean
@@ -84,7 +85,10 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
           <div>
             <label className="text-xs font-medium text-gray-500 mb-2 block">Exam date</label>
             {loading ? (
-              <div className="h-10 bg-gray-100 dark:bg-[#1C2128] rounded-lg animate-pulse" />
+              <div aria-busy="true">
+                <span className="sr-only" role="status">Loading settings</span>
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
             ) : (
               <div className="flex gap-2">
                 <input

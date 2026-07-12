@@ -6,6 +6,7 @@ import { Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { readMarkdownFile } from '@/lib/markdown-file'
 import { SOURCE_LANGUAGES, SOURCE_LANGUAGE_STORAGE_KEY, sourceLanguageLabel, type SourceLanguage } from '@/lib/language'
+import { queueRagIngestion } from '@/lib/rag-client'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { cn } from '@/lib/utils'
 
@@ -88,11 +89,7 @@ export function TopicSourceEditor({ topicId, onClose }: { topicId: string; onClo
     })
     const json = await res.json().catch(() => ({}))
     if (res.ok) {
-      await fetch('/api/ai/ingest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId }),
-      }).catch(() => null)
+      queueRagIngestion(topicId)
     }
     setSaving(false)
     if (!res.ok) { toast.error(json.error ?? 'Failed to save'); return }

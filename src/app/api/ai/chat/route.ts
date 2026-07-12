@@ -4,11 +4,12 @@ import { groqStream } from '@/lib/groq'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import { getExamPromptContext } from '@/lib/exam'
-import { retrieve, ragGroundingBlock } from '@/lib/rag'
+import { retrieve, ragGroundingBlock, citationsFromPassages } from '@/lib/rag'
+import { isSourceLanguage } from '@/lib/language'
 
 export async function POST(req: Request) {
   const blocked = await quotaGuard(); if (blocked) return blocked
-  const { messages, topicId } = await req.json()
+  const { messages, topicId, sourceLanguage } = await req.json()
   const examCtx = await getExamPromptContext()
 
   const supabase = await createClient()
@@ -33,7 +34,13 @@ export async function POST(req: Request) {
 
   // RAG: retrieve passages relevant to the question; fall back to the naive note slice if empty.
   const service = await createServiceClient()
-  const passages = await retrieve(service, lastUser, { topicId, userId: user?.id ?? null, k: 6 })
+  const passages = await retrieve(service, lastUser, {
+    topicId,
+    userId: user?.id ?? null,
+    language: isSourceLanguage(sourceLanguage) ? sourceLanguage : null,
+    k: 6,
+  })
+  const citations = citationsFromPassages(passages)
   const grounding = passages.length > 0
     ? ragGroundingBlock(passages)
     : (noteFallback ? `Study note context:\n${noteFallback}` : '')
@@ -52,8 +59,26 @@ Answer concisely in 2-4 sentences unless a longer explanation is needed. Referen
       { role: 'system', content: system },
       ...messages.slice(-12),
     ], { action: 'ai_chat' })
+    const encoder = new TextEncoder()
+    const reader = stream.getReader()
+    const citedStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ citations })}\n\n`))
+      },
+      async pull(controller) {
+        const { done, value } = await reader.read()
+        if (done) {
+          controller.close()
+          return
+        }
+        controller.enqueue(value)
+      },
+      cancel(reason) {
+        return reader.cancel(reason)
+      },
+    })
 
-    return new Response(stream, {
+    return new Response(citedStream, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',

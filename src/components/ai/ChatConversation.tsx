@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Square, Loader2, MessageSquare, Copy, RefreshCw, Check } from 'lucide-react'
+import { Send, Square, Loader2, MessageSquare, Copy, RefreshCw, Check, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/ui/Markdown'
@@ -10,6 +10,12 @@ import { useChatState, useChatActions } from './ChatProvider'
 /** Quick-start prompts shown in the empty state. */
 const TOPIC_PROMPTS = ['Explain this simply', 'Give me an MCQ', 'Common exam traps', 'Key numbers to remember']
 const GENERAL_PROMPTS = ['Quiz me on a weak area', 'Explain a tricky concept', 'How should I revise today?']
+
+function sourceTypeLabel(value: string): string {
+  return value
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase())
+}
 
 /**
  * The chat thread + input, shared by the mobile drawer (`ChatPanel`) and the
@@ -104,6 +110,33 @@ export function ChatConversation({ variant = 'drawer', autoFocusInput = false }:
                     <p className="whitespace-pre-wrap">{msg.content}</p>
                   )}
                 </div>
+                {msg.role === 'assistant' && msg.citations?.length ? (
+                  <div className="w-full space-y-1.5">
+                    <p className="flex items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                      <BookOpen size={12} />
+                      Sources used
+                    </p>
+                    <div className="space-y-1.5">
+                      {msg.citations.slice(0, 4).map((citation, citationIndex) => (
+                        <details
+                          key={`${citation.id || citation.title}-${citationIndex}`}
+                          className="rounded-lg border border-gray-200 bg-white/70 px-2.5 py-2 text-xs dark:border-[#30363D] dark:bg-[#0D1117]/80"
+                        >
+                          <summary className="cursor-pointer list-none text-gray-700 outline-none dark:text-gray-200">
+                            <span className="font-medium">{citation.title}</span>
+                            <span className="ml-1 text-gray-400">· {sourceTypeLabel(citation.sourceType)}</span>
+                          </summary>
+                          <p className="mt-1.5 line-clamp-4 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+                            {citation.excerpt}
+                          </p>
+                          {citation.sectionPath?.length ? (
+                            <p className="mt-1 text-[10px] text-gray-400">{citation.sectionPath.join(' / ')}</p>
+                          ) : null}
+                        </details>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {/* Assistant actions — copy always, regenerate on the last reply */}
                 {msg.role === 'assistant' && msg.content && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">

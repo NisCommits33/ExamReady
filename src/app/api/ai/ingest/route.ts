@@ -1,17 +1,30 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { assertSuperAdmin } from '@/lib/admin'
-import { ingestTopic } from '@/lib/rag'
+import { enqueueRagIngestion, processRagIngestionJobs } from '@/lib/rag'
 
 /**
- * Embed a topic's content into the RAG index.
- *  - `{ topicId }` — (re)ingest one topic. Any signed-in user (fired after note/annotation/source saves).
- *  - `{ all: true }` — backfill every topic that has content. Super-admins only.
+ * Queue topic content for RAG indexing.
+ *  - `{ topicId }` — queue one topic. Any signed-in user.
+ *  - `{ all: true }` — queue every topic that has content. Super-admins only.
+ *  - `{ process: true }` — process a small batch of queued jobs. Any signed-in user may trigger work.
  */
 export async function POST(req: Request) {
-  const { topicId, all } = await req.json().catch(() => ({}))
+  const { topicId, all, process } = await req.json().catch(() => ({}))
 
   const service = await createServiceClient()
+
+  if (process) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    try {
+      const res = await processRagIngestionJobs(service, 3)
+      return NextResponse.json({ ok: true, ...res })
+    } catch (e) {
+      return NextResponse.json({ error: String(e) }, { status: 500 })
+    }
+  }
 
   if (all) {
     const adminId = await assertSuperAdmin()
@@ -35,13 +48,16 @@ export async function POST(req: Request) {
       ...(anns ?? []).map(a => a.topic_id),
     ].filter(Boolean))) as string[]
 
-    let inserted = 0
+    let queued = 0
     const errors: string[] = []
     for (const id of topicIds) {
-      try { inserted += (await ingestTopic(service, id)).inserted }
+      try {
+        await enqueueRagIngestion(service, id, adminId)
+        queued += 1
+      }
       catch (e) { errors.push(e instanceof Error ? e.message : String(e)) }
     }
-    return NextResponse.json({ ok: true, topics: topicIds.length, inserted, errors: errors.slice(0, 3) })
+    return NextResponse.json({ ok: true, topics: topicIds.length, queued, errors: errors.slice(0, 3) })
   }
 
   if (!topicId) return NextResponse.json({ error: 'Missing topicId' }, { status: 400 })
@@ -52,8 +68,8 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const res = await ingestTopic(service, topicId)
-    return NextResponse.json({ ok: true, ...res })
+    const res = await enqueueRagIngestion(service, topicId, user.id)
+    return NextResponse.json({ ok: true, queued: true, ...res })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

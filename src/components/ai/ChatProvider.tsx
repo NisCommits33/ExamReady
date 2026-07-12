@@ -1,12 +1,14 @@
 'use client'
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
-import { readStream } from '@/lib/sse'
+import { readStream, type StreamCitation } from '@/lib/sse'
 import { notifyTokens } from '@/lib/notify-tokens'
+import { isSourceLanguage, SOURCE_LANGUAGE_STORAGE_KEY } from '@/lib/language'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  citations?: StreamCitation[]
 }
 
 /** Data that changes as the conversation streams — consume only where it's rendered. */
@@ -131,20 +133,36 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     abortRef.current = controller
 
     try {
+      let sourceLanguage: 'en' | 'ne' | undefined
+      try {
+        const stored = localStorage.getItem(SOURCE_LANGUAGE_STORAGE_KEY)
+        sourceLanguage = isSourceLanguage(stored) ? stored : undefined
+      } catch {
+        sourceLanguage = undefined
+      }
+      let citations: StreamCitation[] = []
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: history.map(m => ({ role: m.role, content: m.content })),
           topicId: topicIdRef.current,
+          sourceLanguage,
         }),
         signal: controller.signal,
       })
       if (!res.ok) throw new Error('Failed')
 
-      const { tokens } = await readStream(res, full => {
-        commit([...history, { role: 'assistant', content: full }])
-      })
+      const { tokens } = await readStream(
+        res,
+        full => {
+          commit([...history, { role: 'assistant', content: full, citations }])
+        },
+        meta => {
+          citations = meta.citations ?? []
+          commit([...history, { role: 'assistant', content: messagesRef.current.at(-1)?.content ?? '', citations }])
+        },
+      )
       notifyTokens(tokens)
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') {

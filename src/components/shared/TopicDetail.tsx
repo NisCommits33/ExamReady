@@ -19,6 +19,7 @@ import { readMarkdownFile } from '@/lib/markdown-file'
 import { isSourceLanguage, SOURCE_LANGUAGES, SOURCE_LANGUAGE_STORAGE_KEY, sourceLanguageLabel, type SourceLanguage } from '@/lib/language'
 import { readStream } from '@/lib/sse'
 import { notifyTokens } from '@/lib/notify-tokens'
+import { queueRagIngestion } from '@/lib/rag-client'
 import { useHighlighter } from '@/hooks/useHighlighter'
 import { useResumeReading, type SavedPosition } from '@/hooks/useResumeReading'
 import { HighlightPopover } from '@/components/shared/HighlightPopover'
@@ -180,7 +181,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
 
   // Fire-and-forget: keep the RAG index fresh after content changes.
   function reindexTopic() {
-    void fetch('/api/ai/ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topicId: topic.id }) }).catch(() => {})
+    queueRagIngestion(topic.id)
   }
 
   async function generateNote() {

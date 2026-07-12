@@ -17,6 +17,7 @@ import { readMarkdownFile } from '@/lib/markdown-file'
 import { isSourceLanguage, SOURCE_LANGUAGES, SOURCE_LANGUAGE_STORAGE_KEY, sourceLanguageLabel, type SourceLanguage } from '@/lib/language'
 import { readStream } from '@/lib/sse'
 import { notifyTokens } from '@/lib/notify-tokens'
+import { queueRagIngestion } from '@/lib/rag-client'
 import { SimplifiableContent } from '@/components/shared/SimplifiableContent'
 import { ScrollToTop } from '@/components/shared/ScrollToTop'
 import { SourceMeta } from '@/components/shared/SourceMeta'
@@ -198,11 +199,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
     setUserSources(prev => ({ ...prev, [sourceLanguage]: { content: value, file_name: sourceDraftFileName ?? prev[sourceLanguage]?.file_name ?? null } }))
     setEditingSource(false)
     toast.success('Source saved')
-    void fetch('/api/ai/ingest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topicId: topic.id }),
-    }).catch(() => {})
+    queueRagIngestion(topic.id)
   }
 
   async function handleKeyPointsFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -248,11 +245,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
     setUserKeyPoints({ content: value, file_name: keyPointsDraftFileName })
     setEditingKeyPoints(false)
     toast.success('Key points saved')
-    void fetch('/api/ai/ingest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topicId: topic.id }),
-    }).catch(() => {})
+    queueRagIngestion(topic.id)
   }
 
   async function generateNote() {

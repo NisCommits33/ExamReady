@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, Plus, Trash2, ChevronDown, FileText, Layers, ListChecks, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { processQueuedRag } from '@/lib/rag-client'
 import { TopicSourceEditor } from '@/components/admin/TopicSourceEditor'
 import { SubtopicManager } from '@/components/admin/SubtopicManager'
 import { TopicMcqManager } from '@/components/admin/TopicMcqManager'
@@ -54,9 +55,10 @@ export function AdminContentClient({ exams, shiftTypes, topics, sections }: { ex
         toast.error('Failed to rebuild index'); setIndexResult(`❌ ${msg}`)
       } else {
         const errs: string[] = json.errors ?? []
-        const msg = `${json.inserted ?? 0} chunks across ${json.topics ?? 0} topics`
-        if (errs.length) { toast.error('Index rebuilt with errors'); setIndexResult(`⚠️ ${msg}\n${errs.join('\n')}`) }
-        else { toast.success(`AI index rebuilt — ${msg}`); setIndexResult(`✅ ${msg}`) }
+        const msg = `${json.queued ?? 0} topics queued out of ${json.topics ?? 0}`
+        processQueuedRag(10)
+        if (errs.length) { toast.error('Index queued with errors'); setIndexResult(`Warning: ${msg}\n${errs.join('\n')}`) }
+        else { toast.success(`AI index rebuild queued - ${msg}`); setIndexResult(`Queued: ${msg}`) }
       }
     } catch (e) {
       toast.error('Failed to rebuild index'); setIndexResult(`❌ ${String(e)}`)
@@ -108,7 +110,7 @@ export function AdminContentClient({ exams, shiftTypes, topics, sections }: { ex
             disabled={indexing}
             className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-white bg-brand-600 px-3 py-2 rounded-lg hover:bg-brand-800 transition-colors disabled:opacity-50"
           >
-            {indexing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} {indexing ? 'Rebuilding…' : 'Rebuild index'}
+            {indexing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} {indexing ? 'Queueing...' : 'Queue rebuild'}
           </button>
         </div>
         {indexResult && <p className="mt-2 text-xs font-mono text-gray-600 dark:text-gray-300 break-words whitespace-pre-wrap">{indexResult}</p>}

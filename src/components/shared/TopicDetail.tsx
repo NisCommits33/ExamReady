@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef, type ReactNode } from 'react'
-import { BookOpen, PenLine, MessageSquare, Plus, ChevronRight, ChevronDown, Layers, RefreshCw, Upload, Loader2, Pencil, Sparkles } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
+import { BookOpen, PenLine, MessageSquare, Plus, ChevronRight, ChevronDown, Layers, RefreshCw, Upload, Loader2, Pencil, Sparkles, ListTree } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn, relativeDate } from '@/lib/utils'
 import { useChatActions, useChatState } from '@/components/ai/ChatProvider'
@@ -12,9 +12,11 @@ import { SourceMeta } from '@/components/shared/SourceMeta'
 import { LoadingStream, StreamingSkeleton } from '@/components/shared/LoadingStream'
 import { StatusToggle } from '@/components/shared/StatusToggle'
 import { SubtopicDetail } from '@/components/shared/SubtopicDetail'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { fetchSubtopics } from '@/lib/subtopics'
 import { createClient } from '@/lib/supabase/client'
-import { isTextFile, readSourceFile } from '@/lib/source-file'
+import { readMarkdownFile } from '@/lib/markdown-file'
+import { isSourceLanguage, SOURCE_LANGUAGES, SOURCE_LANGUAGE_STORAGE_KEY, sourceLanguageLabel, type SourceLanguage } from '@/lib/language'
 import { readStream } from '@/lib/sse'
 import { notifyTokens } from '@/lib/notify-tokens'
 import { useHighlighter } from '@/hooks/useHighlighter'
@@ -26,6 +28,23 @@ import type { Topic, TopicNote, TopicStatus, UserAnnotation, Subtopic } from '@/
 
 type SubTab = 'study' | 'practice'
 type StudyTab = 'source' | 'your_source' | 'note' | 'keypoints' | 'tips'
+type LanguageContent = Partial<Record<SourceLanguage, { content: string; file_name: string | null }>>
+
+interface TocItem {
+  id: string
+  level: number
+  title: string
+}
+
+function slugifyHeading(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'section'
+}
 
 interface Props {
   topic: Topic
@@ -51,6 +70,17 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
   const [subtopics, setSubtopics] = useState<Subtopic[]>([])
   const [selectedSubtopic, setSelectedSubtopic] = useState<Subtopic | null>(null)
   const [subtopicsOpen, setSubtopicsOpen] = useState(true)
+  const [tocOpen, setTocOpen] = useState(false)
+  const [tocItems, setTocItems] = useState<TocItem[]>([])
+  const [sourceLanguage, setSourceLanguageState] = useState<SourceLanguage>(() => {
+    if (typeof window === 'undefined') return 'en'
+    try {
+      const stored = localStorage.getItem(SOURCE_LANGUAGE_STORAGE_KEY)
+      return isSourceLanguage(stored) ? stored : 'en'
+    } catch {
+      return 'en'
+    }
+  })
 
   // Desktop (xl+) chat rail (ChatDock in Shell). Dock on open, undock on leave;
   // remember the collapsed preference across topics.
@@ -86,30 +116,51 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
     save: saveProgress, onResumeTab: (t) => setStudyTab(t as StudyTab),
   })
 
-  // User-uploaded source ("Your source" tab)
+  // Language-specific sources.
   const [editingSource, setEditingSource] = useState(false)
   const [sourceDraft, setSourceDraft] = useState('')
+  const [sourceDraftFileName, setSourceDraftFileName] = useState<string | null>(null)
   const [uploadingSource, setUploadingSource] = useState(false)
   const [savingSource, setSavingSource] = useState(false)
-  const [userSource, setUserSource] = useState<string | null>(null)
+  const [officialSources, setOfficialSources] = useState<LanguageContent>({})
+  const [userSources, setUserSources] = useState<LanguageContent>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function setSourceLanguage(language: SourceLanguage) {
+    setSourceLanguageState(language)
+    try { localStorage.setItem(SOURCE_LANGUAGE_STORAGE_KEY, language) } catch {}
+    if (editingSource) {
+      setSourceDraft(userSources[language]?.content ?? '')
+      setSourceDraftFileName(userSources[language]?.file_name ?? null)
+    }
+  }
 
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const [{ data: note }, { data: anns }, subs, { data: progress }, { data: srcRow }] = await Promise.all([
+      const [{ data: note }, { data: anns }, subs, { data: progress }, { data: officialRows }, { data: userRows }] = await Promise.all([
         supabase.from('topic_notes').select('*').eq('topic_id', topic.id).maybeSingle(),
         supabase.from('user_annotations').select('*').eq('topic_id', topic.id).order('created_at', { ascending: false }),
         fetchSubtopics(topic.id),
         supabase.from('user_topic_progress').select('last_read_tab,last_read_scroll').eq('topic_id', topic.id).maybeSingle(),
-        supabase.from('user_topic_sources').select('content').eq('topic_id', topic.id).maybeSingle(),
+        supabase.from('topic_source_files').select('language,content,file_name').eq('topic_id', topic.id),
+        supabase.from('user_topic_source_files').select('language,content,file_name').eq('topic_id', topic.id),
       ])
       setTopicNote(note)
       setAnnotations(anns ?? [])
       setSubtopics(subs)
       setResume(progress ? { tab: progress.last_read_tab, scroll: progress.last_read_scroll } : null)
-      setUserSource(srcRow?.content ?? null)
-      if (note?.official_source) setStudyTab('source')
+      const nextOfficial: LanguageContent = {}
+      for (const row of officialRows ?? []) {
+        if (isSourceLanguage(row.language)) nextOfficial[row.language] = { content: row.content, file_name: row.file_name ?? null }
+      }
+      const nextUser: LanguageContent = {}
+      for (const row of userRows ?? []) {
+        if (isSourceLanguage(row.language)) nextUser[row.language] = { content: row.content, file_name: row.file_name ?? null }
+      }
+      setOfficialSources(nextOfficial)
+      setUserSources(nextUser)
+      if (note?.official_source || Object.keys(nextOfficial).length > 0) setStudyTab('source')
       else setStudyTab('note')
     }
     load()
@@ -164,36 +215,83 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
     if (!file) return
     setUploadingSource(true)
     try {
-      const text = await readSourceFile(file)
-      if (!text.trim()) { toast.error('File was empty'); return }
-      setSourceDraft(prev => (prev.trim() ? `${prev.trim()}\n\n${text}` : text))
-      toast.success(isTextFile(file) ? 'File loaded — review and save' : 'Text extracted — review and save')
+      const text = await readMarkdownFile(file)
+      setSourceDraft(prev => (prev.trim() ? `${prev.trim()}\n\n${text.trim()}` : text.trim()))
+      setSourceDraftFileName(file.name)
+      toast.success('Markdown loaded — review and save')
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Could not read file') } finally { setUploadingSource(false) }
   }
 
   async function saveSource() {
     setSavingSource(true)
     const value = sourceDraft.trim()
+    if (!value) {
+      setSavingSource(false)
+      toast.error('Source cannot be empty')
+      return
+    }
     const supabase = createClient()
-    const { error } = await supabase.from('user_topic_sources').upsert(
-      { topic_id: topic.id, content: value || null, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id,topic_id' },
+    const { error } = await supabase.from('user_topic_source_files').upsert(
+      { topic_id: topic.id, language: sourceLanguage, content: value, file_name: sourceDraftFileName, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,topic_id,language' },
     )
     setSavingSource(false)
     if (error) { toast.error('Failed to save source'); return }
-    setUserSource(value || null)
+    setUserSources(prev => ({ ...prev, [sourceLanguage]: { content: value, file_name: sourceDraftFileName ?? prev[sourceLanguage]?.file_name ?? null } }))
     setEditingSource(false)
     toast.success('Source saved')
     reindexTopic()
   }
 
   const notes = annotations.filter(a => a.annotation_type === 'note')
-  const hasSource = !!topicNote?.official_source
+  const selectedOfficialSource = officialSources[sourceLanguage]?.content ?? (sourceLanguage === 'en' ? topicNote?.official_source ?? null : null)
+  const selectedUserSource = userSources[sourceLanguage]?.content ?? null
+  const selectedUserSourceFileName = userSources[sourceLanguage]?.file_name ?? null
   const studyTabs: { key: StudyTab; label: string }[] = [
-    ...(hasSource ? [{ key: 'source' as StudyTab, label: 'Official source' }] : []),
+    { key: 'source' as StudyTab, label: 'Official source' },
     { key: 'your_source', label: 'Your source' },
     { key: 'note', label: 'AI note' }, { key: 'keypoints', label: 'Key points' }, { key: 'tips', label: 'Exam tips' },
   ]
+  const headingIdPrefix = `topic-detail-${topic.id}-${studyTab}`
+
+  const refreshTocItems = useCallback(() => {
+    const root = readerRef.current
+    if (!root) {
+      setTocItems([])
+      return
+    }
+    const counts = new Map<string, number>()
+    const headings = Array.from(root.querySelectorAll<HTMLHeadingElement>('h1, h2, h3'))
+      .map((heading) => {
+        const title = heading.textContent?.trim() ?? ''
+        if (!title) return null
+        if (!heading.id) {
+          const base = slugifyHeading(title)
+          const count = counts.get(base) ?? 0
+          counts.set(base, count + 1)
+          heading.id = `${headingIdPrefix}-${base}${count ? `-${count + 1}` : ''}`
+        }
+        return {
+          id: heading.id,
+          level: Number(heading.tagName.slice(1)),
+          title,
+        }
+      })
+      .filter((item): item is TocItem => Boolean(item))
+    setTocItems(headings)
+  }, [headingIdPrefix])
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(refreshTocItems)
+    return () => cancelAnimationFrame(frame)
+  }, [studyTab, topicNote, officialSources, userSources, sourceLanguage, generating, extracting, streamText, refreshTocItems])
+
+  function jumpToTocItem(id: string) {
+    setTocOpen(false)
+    setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 80)
+  }
 
   const topicView = (
     <div>
@@ -260,58 +358,126 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
             {studyTabs.map(t => (
               <button key={t.key} onClick={() => setStudyTab(t.key)} className={cn('flex-shrink-0 px-4 py-2.5 text-sm font-medium transition-all duration-150 border-b-2 -mb-px flex items-center gap-1.5', studyTab === t.key ? 'text-brand-600 border-brand-600' : 'text-gray-400 border-transparent hover:text-gray-600 dark:hover:text-gray-300')}>
                 {t.label}
-                {t.key === 'your_source' && userSource && <span className="w-1.5 h-1.5 rounded-full bg-violet-400" title="You added your own source" />}
+                {t.key === 'your_source' && selectedUserSource && <span className="w-1.5 h-1.5 rounded-full bg-violet-400" title="You added your own source" />}
                 {extracting && (t.key === 'keypoints' || t.key === 'tips') && <span className="w-3 h-3 border border-gray-300 border-t-brand-400 rounded-full animate-spin" />}
               </button>
             ))}
           </div>
 
-          <div ref={readerRef} onMouseUp={onMouseUp}>
-          {studyTab === 'source' && topicNote?.official_source && (
-            <div>
-              <SimplifiableContent
-                content={topicNote.official_source}
-                topicName={topic.name}
-                header={
-                  <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg">
-                    <span className="text-[11px] font-semibold text-white bg-brand-600 px-1.5 py-0.5 rounded-full">Official</span>
-                    <span className="text-xs text-brand-700 dark:text-brand-300">Original source material for this topic</span>
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex w-full bg-gray-100 dark:bg-[#1C2128] rounded-lg p-0.5 sm:w-auto" aria-label="Source language">
+              {SOURCE_LANGUAGES.map(language => (
+                <button
+                  key={language.key}
+                  onClick={() => setSourceLanguage(language.key)}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-400/40',
+                    sourceLanguage === language.key
+                      ? 'bg-white text-gray-900 shadow-sm dark:bg-[#161B22] dark:text-gray-100'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300',
+                  )}
+                >
+                  {language.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                refreshTocItems()
+                setTocOpen(true)
+              }}
+              className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all duration-150 hover:border-brand-300 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400/40 dark:border-[#30363D] dark:bg-[#161B22] dark:text-gray-200 dark:hover:border-brand-800 dark:hover:text-brand-200 sm:w-auto"
+              aria-label="Open table of contents"
+            >
+              <ListTree size={16} />
+              Contents
+            </button>
+          </div>
+
+          <Dialog open={tocOpen} onOpenChange={setTocOpen}>
+            <DialogContent className="max-h-[min(80dvh,36rem)] sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Contents</DialogTitle>
+                <DialogDescription>Jump to a section in the selected tab.</DialogDescription>
+              </DialogHeader>
+              <div className="-mx-1 max-h-[calc(min(80dvh,36rem)-7rem)] overflow-y-auto pr-1">
+                <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Sections in {studyTabs.find(item => item.key === studyTab)?.label ?? 'current tab'}</p>
+                {tocItems.length > 0 ? (
+                  <div className="space-y-1">
+                    {tocItems.map(item => (
+                      <button
+                        key={item.id}
+                        onClick={() => jumpToTocItem(item.id)}
+                        className={cn(
+                          'flex min-h-11 w-full items-center rounded-lg px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-400/40 dark:text-gray-200 dark:hover:bg-[#1C2128]',
+                          item.level === 2 && 'pl-6',
+                          item.level === 3 && 'pl-9 text-gray-500 dark:text-gray-400',
+                        )}
+                      >
+                        <span className="line-clamp-2">{item.title}</span>
+                      </button>
+                    ))}
                   </div>
-                }
-              />
-              <SourceMeta note={topicNote} />
+                ) : (
+                  <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No headings found in this tab yet.</p>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <div ref={readerRef} onMouseUp={onMouseUp}>
+          {studyTab === 'source' && (
+            <div>
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-[#30363D] dark:bg-[#1C2128]">
+                <span className="rounded-full bg-brand-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">Official</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">{sourceLanguageLabel(sourceLanguage)} official source material for this topic</span>
+              </div>
+              {selectedOfficialSource ? (
+                <>
+                  <SimplifiableContent content={selectedOfficialSource} topicName={topic.name} headingIdPrefix={headingIdPrefix} />
+                  {topicNote && sourceLanguage === 'en' && !officialSources.en && <SourceMeta note={topicNote} />}
+                </>
+              ) : (
+                <div className="py-12 text-center">
+                  <p className="text-sm text-gray-400 mb-1">No {sourceLanguageLabel(sourceLanguage).toLowerCase()} official source yet</p>
+                  <p className="text-xs text-gray-400">Ask an admin to upload a Markdown source for this language.</p>
+                </div>
+              )}
             </div>
           )}
 
           {studyTab === 'your_source' && (
             <div>
-              {!editingSource && userSource ? (
+              {!editingSource && selectedUserSource ? (
                 <div>
-                  <div className="mb-4 flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-[#1C2128] border border-gray-200 dark:border-[#30363D] rounded-lg">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Your own source — grounds AI notes, MCQs &amp; key numbers.</span>
-                    <button onClick={() => { setSourceDraft(userSource ?? ''); setEditingSource(true) }} className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors"><Pencil size={13} /> Edit</button>
+                  <div className="mb-4 flex flex-col gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-[#30363D] dark:bg-[#1C2128] sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Your {sourceLanguageLabel(sourceLanguage).toLowerCase()} source material
+                      {selectedUserSourceFileName ? <span className="ml-1 text-gray-400">· {selectedUserSourceFileName}</span> : null}
+                    </span>
+                    <button onClick={() => { setSourceDraft(selectedUserSource ?? ''); setSourceDraftFileName(selectedUserSourceFileName); setEditingSource(true) }} className="flex min-h-9 flex-shrink-0 items-center gap-1 self-start rounded-md px-2 text-xs font-medium text-brand-600 transition-colors hover:bg-brand-50 hover:text-brand-800 dark:hover:bg-brand-900/20 sm:self-auto"><Pencil size={13} /> Edit</button>
                   </div>
-                  <SimplifiableContent content={userSource} topicName={topic.name} preserveBreaks />
+                  <SimplifiableContent content={selectedUserSource} topicName={topic.name} preserveBreaks headingIdPrefix={headingIdPrefix} />
                 </div>
               ) : !editingSource ? (
                 <div className="py-16 text-center">
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Add your own source material for this topic</p>
-                  <button onClick={() => { setSourceDraft(''); setEditingSource(true) }} className="px-5 py-2.5 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-800 transition-colors active:scale-[0.98]">Add source</button>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Add your own {sourceLanguageLabel(sourceLanguage).toLowerCase()} source material for this topic</p>
+                  <button onClick={() => { setSourceDraft(''); setSourceDraftFileName(null); setEditingSource(true) }} className="min-h-10 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-brand-800 active:scale-[0.98]">Upload Markdown</button>
                 </div>
               ) : (
-                <div className="border border-gray-200 dark:border-[#30363D] dark:bg-[#161B22] rounded-xl p-4">
-                  <input ref={fileInputRef} type="file" accept="image/*,.pdf,.md,.markdown,.txt,text/markdown,text/plain" onChange={handleSourceFile} className="hidden" />
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <button onClick={() => fileInputRef.current?.click()} disabled={uploadingSource} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 border border-brand-200 dark:border-brand-800 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors disabled:opacity-50">
+                <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-[#30363D] dark:bg-[#161B22]">
+                  <input ref={fileInputRef} type="file" accept=".md,.markdown,text/markdown" onChange={handleSourceFile} className="hidden" />
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <button onClick={() => fileInputRef.current?.click()} disabled={uploadingSource} className="flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-medium text-brand-600 transition-colors hover:bg-brand-50 disabled:opacity-50 dark:border-brand-800 dark:hover:bg-brand-900/20 sm:justify-start">
                       {uploadingSource ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
-                      {uploadingSource ? 'Reading…' : 'Upload MD / PDF / image'}
+                      {uploadingSource ? 'Reading…' : 'Upload MD'}
                     </button>
-                    <span className="text-xs text-gray-400">or paste below</span>
+                    <span className="text-xs text-gray-400">{sourceLanguageLabel(sourceLanguage)} source</span>
                   </div>
-                  <textarea value={sourceDraft} onChange={e => setSourceDraft(e.target.value)} rows={14} placeholder="Paste your source material here, or upload a PDF/image to extract its text…" className="w-full text-sm font-mono text-gray-700 dark:text-gray-100 dark:bg-transparent border border-gray-200 dark:border-[#30363D] rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-brand-400/30 focus:border-brand-400" />
+                  <textarea value={sourceDraft} onChange={e => setSourceDraft(e.target.value)} rows={14} placeholder={`Paste your ${sourceLanguageLabel(sourceLanguage).toLowerCase()} source Markdown here, or upload a .md file…`} className="w-full text-sm font-mono text-gray-700 dark:text-gray-100 dark:bg-transparent border border-gray-200 dark:border-[#30363D] rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-brand-400/30 focus:border-brand-400" />
                   <div className="flex justify-end gap-2 mt-3">
-                    <button onClick={() => { setEditingSource(false); setSourceDraft(userSource ?? '') }} className="text-xs text-gray-400 px-3 py-1.5 hover:text-gray-600">Cancel</button>
-                    <button onClick={saveSource} disabled={savingSource || uploadingSource} className="flex items-center gap-1.5 text-xs font-medium text-white bg-brand-600 px-3 py-1.5 rounded-lg hover:bg-brand-800 transition-colors disabled:opacity-50">
+                    <button onClick={() => { setEditingSource(false); setSourceDraft(selectedUserSource ?? ''); setSourceDraftFileName(selectedUserSourceFileName) }} className="min-h-9 rounded-md px-3 py-1.5 text-xs text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-[#1C2128]">Cancel</button>
+                    <button onClick={saveSource} disabled={savingSource || uploadingSource} className="flex min-h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-800 disabled:opacity-50">
                       {savingSource && <Loader2 size={13} className="animate-spin" />} Save
                     </button>
                   </div>
@@ -329,7 +495,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
                 </div>
               )}
               {generating && (<div>{streamText ? <LoadingStream text={streamText} streaming className="mb-4" /> : <StreamingSkeleton />}</div>)}
-              {!generating && topicNote?.study_note && <SimplifiableContent content={topicNote.study_note} topicName={topic.name} />}
+              {!generating && topicNote?.study_note && <SimplifiableContent content={topicNote.study_note} topicName={topic.name} headingIdPrefix={headingIdPrefix} />}
               {notes.length > 0 && (
                 <div className="mt-6 pt-4 border-t border-gray-100 dark:border-[#21262D]">
                   <p className="text-xs font-medium text-gray-500 mb-2">Your notes ({notes.length})</p>
@@ -350,9 +516,19 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
             </div>
           )}
 
-          {studyTab === 'keypoints' && (<div>{extracting ? (<div className="py-12 text-center"><div className="w-5 h-5 border-2 border-gray-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-3" /><p className="text-sm text-gray-400">Extracting key points…</p></div>) : topicNote?.key_points ? <Markdown>{topicNote.key_points}</Markdown> : (<div className="py-12 text-center"><p className="text-sm text-gray-400 mb-1">No key points yet</p><p className="text-xs text-gray-400">Generate the study note to populate this tab automatically</p></div>)}</div>)}
+          {studyTab === 'keypoints' && (
+            <div>
+              {extracting ? (
+                <div className="py-12 text-center"><div className="w-5 h-5 border-2 border-gray-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-3" /><p className="text-sm text-gray-400">Extracting key points…</p></div>
+              ) : topicNote?.key_points ? (
+                <Markdown headingIdPrefix={headingIdPrefix}>{topicNote.key_points}</Markdown>
+              ) : (
+                <div className="py-12 text-center"><p className="text-sm text-gray-400 mb-1">No key points yet</p><p className="text-xs text-gray-400">Generate the study note to populate this tab automatically</p></div>
+              )}
+            </div>
+          )}
 
-          {studyTab === 'tips' && (<div>{extracting ? (<div className="py-12 text-center"><div className="w-5 h-5 border-2 border-gray-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-3" /><p className="text-sm text-gray-400">Extracting exam tips…</p></div>) : topicNote?.exam_tips ? <Markdown>{topicNote.exam_tips}</Markdown> : (<div className="py-12 text-center"><p className="text-sm text-gray-400 mb-1">No exam tips yet</p><p className="text-xs text-gray-400">Generate the study note to populate this tab automatically</p></div>)}</div>)}
+          {studyTab === 'tips' && (<div>{extracting ? (<div className="py-12 text-center"><div className="w-5 h-5 border-2 border-gray-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-3" /><p className="text-sm text-gray-400">Extracting exam tips…</p></div>) : topicNote?.exam_tips ? <Markdown headingIdPrefix={headingIdPrefix}>{topicNote.exam_tips}</Markdown> : (<div className="py-12 text-center"><p className="text-sm text-gray-400 mb-1">No exam tips yet</p><p className="text-xs text-gray-400">Generate the study note to populate this tab automatically</p></div>)}</div>)}
           </div>
 
           {(studyTab === 'note' || studyTab === 'source' || studyTab === 'your_source') && (

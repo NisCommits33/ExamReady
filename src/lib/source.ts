@@ -1,4 +1,5 @@
 import type { createClient } from '@/lib/supabase/server'
+import type { SourceLanguage } from '@/lib/language'
 
 type ServerClient = Awaited<ReturnType<typeof createClient>>
 
@@ -6,8 +7,8 @@ const MAX_SOURCE_CHARS = 6000
 
 /**
  * Loads the source material for a topic, combining the caller's own per-user source
- * (`user_topic_sources.content`) and the admin `official_source`, with the user's
- * source prioritised first. Returns null if neither exists.
+ * and the admin official source for the requested language, with the user's source
+ * prioritised first. Legacy single-language content is used only for English fallback.
  *
  * `includeUserSource` must be false when called with a service-role client (RLS is
  * bypassed, so the per-user table isn't scoped to a single user).
@@ -15,27 +16,49 @@ const MAX_SOURCE_CHARS = 6000
 export async function getTopicSource(
   supabase: ServerClient,
   topicId: string,
-  opts?: { includeUserSource?: boolean },
+  opts?: { includeUserSource?: boolean; language?: SourceLanguage },
 ): Promise<string | null> {
   const includeUserSource = opts?.includeUserSource ?? true
+  const language = opts?.language ?? 'en'
 
   let userContent: string | null = null
   if (includeUserSource) {
-    const { data } = await supabase
-      .from('user_topic_sources')
+    const { data: languageSource } = await supabase
+      .from('user_topic_source_files')
       .select('content')
       .eq('topic_id', topicId)
+      .eq('language', language)
       .maybeSingle()
-    userContent = data?.content ?? null
+    userContent = languageSource?.content ?? null
+
+    if (!userContent && language === 'en') {
+      const { data } = await supabase
+        .from('user_topic_sources')
+        .select('content')
+        .eq('topic_id', topicId)
+        .maybeSingle()
+      userContent = data?.content ?? null
+    }
   }
 
-  const { data: notes } = await supabase
-    .from('topic_notes')
-    .select('official_source')
+  const { data: languageOfficial } = await supabase
+    .from('topic_source_files')
+    .select('content')
     .eq('topic_id', topicId)
+    .eq('language', language)
     .maybeSingle()
+  let officialContent = languageOfficial?.content ?? null
 
-  const combined = [userContent, notes?.official_source]
+  if (!officialContent && language === 'en') {
+    const { data: notes } = await supabase
+      .from('topic_notes')
+      .select('official_source')
+      .eq('topic_id', topicId)
+      .maybeSingle()
+    officialContent = notes?.official_source ?? null
+  }
+
+  const combined = [userContent, officialContent]
     .map(s => s?.trim())
     .filter(Boolean)
     .join('\n\n---\n\n')
@@ -52,7 +75,7 @@ export type GroundingMode = 'source' | 'note' | 'general'
  */
 export async function getMcqGrounding(
   supabase: ServerClient,
-  { topicId, subtopicId, mode }: { topicId: string; subtopicId?: string | null; mode: GroundingMode },
+  { topicId, subtopicId, mode, language = 'en' }: { topicId: string; subtopicId?: string | null; mode: GroundingMode; language?: SourceLanguage },
 ): Promise<string | null> {
   if (mode === 'general') return null
 
@@ -71,7 +94,7 @@ export async function getMcqGrounding(
     return data?.study_note?.trim() || null
   }
   // mode === 'source'
-  return getTopicSource(supabase, topicId)
+  return getTopicSource(supabase, topicId, { language })
 }
 
 /** Prompt fragment instructing the model to ground its output in the given source. */

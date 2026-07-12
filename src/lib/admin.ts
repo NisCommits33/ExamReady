@@ -238,11 +238,15 @@ export async function getAllSubtopicsBrief(): Promise<AdminSubtopicBrief[]> {
 
 export async function getAllTopicsBrief(): Promise<AdminTopicBrief[]> {
   const service = await createServiceClient()
-  const [{ data }, { data: notes }] = await Promise.all([
+  const [{ data }, { data: notes }, { data: sourceFiles }] = await Promise.all([
     service.from('topics').select('id,exam_id,name,paper,section,topic_number').order('topic_number'),
     service.from('topic_notes').select('topic_id,official_source'),
+    service.from('topic_source_files').select('topic_id,content'),
   ])
   const withSource = new Set((notes ?? []).filter(n => n.official_source).map(n => n.topic_id))
+  for (const row of sourceFiles ?? []) {
+    if (row.content?.trim()) withSource.add(row.topic_id)
+  }
   return (data ?? []).map(t => ({ ...t, hasSource: withSource.has(t.id) })) as AdminTopicBrief[]
 }
 

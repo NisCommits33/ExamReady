@@ -12,16 +12,25 @@ export default async function SectionPage({ params }: { params: Promise<{ sectio
   const { data: section } = await supabase.from('exam_sections').select('*').eq('id', sectionId).maybeSingle()
   if (!section) notFound()
 
-  const [{ data: rawTopics }, { data: keyPoints }, { data: userSrcs }] = await Promise.all([
+  const [{ data: rawTopics }, { data: keyPoints }, { data: legacyUserSrcs }, { data: userSrcs }] = await Promise.all([
     supabase.from('topics').select(TOPIC_WITH_PROGRESS).eq('section_id', sectionId).order('topic_number'),
     supabase.from('topic_notes').select('topic_id,key_points'),
     supabase.from('user_topic_sources').select('topic_id'),
+    supabase.from('user_topic_source_files').select('topic_id'),
   ])
   // Topics where the current user has added their own source material — used to highlight them in lists.
-  const userSourceTopicIds = new Set((userSrcs ?? []).map(s => s.topic_id))
+  const userSourceTopicIds = new Set([
+    ...(legacyUserSrcs ?? []).map(s => s.topic_id),
+    ...(userSrcs ?? []).map(s => s.topic_id),
+  ])
   const topics = flattenTopics(rawTopics).map(t => ({ ...t, has_user_source: userSourceTopicIds.has(t.id) }))
   const topicIds = new Set(topics.map(t => t.id))
-  const tkp = (keyPoints ?? []).filter(kp => topicIds.has(kp.topic_id))
+  const keyPointsByTopic = new Map(
+    (keyPoints ?? [])
+      .filter(kp => topicIds.has(kp.topic_id))
+      .map(kp => [kp.topic_id, kp.key_points]),
+  )
+  const tkp = Array.from(keyPointsByTopic, ([topic_id, key_points]) => ({ topic_id, key_points }))
 
   if (section.kind === 'mcq_study') {
     return <GKClient topics={topics} topicKeyPoints={tkp} heading={section.name} sectionId={sectionId} />

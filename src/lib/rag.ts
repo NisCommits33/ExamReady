@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { openrouterEmbed as embed } from '@/lib/openrouter'
+import { isSourceLanguage } from '@/lib/language'
 import type { createServiceClient } from '@/lib/supabase/server'
 
 type Service = Awaited<ReturnType<typeof createServiceClient>>
@@ -78,10 +79,12 @@ interface Logical { source_type: string; user_id: string | null; content: string
  * are skipped; changed ones are replaced (delete + re-embed) so nothing goes stale.
  */
 export async function ingestTopic(service: Service, topicId: string): Promise<{ inserted: number; sources: number }> {
-  const [{ data: note }, { data: anns }, { data: usrc }] = await Promise.all([
+  const [{ data: note }, { data: adminSources }, { data: anns }, { data: legacyUserSources }, { data: userSources }] = await Promise.all([
     service.from('topic_notes').select('study_note,key_points,exam_tips,official_source,model_answer_5mark,model_answer_10mark').eq('topic_id', topicId).maybeSingle(),
+    service.from('topic_source_files').select('content,language').eq('topic_id', topicId),
     service.from('user_annotations').select('content,user_id').eq('topic_id', topicId).eq('annotation_type', 'note'),
     service.from('user_topic_sources').select('content,user_id').eq('topic_id', topicId),
+    service.from('user_topic_source_files').select('content,user_id,language').eq('topic_id', topicId),
   ])
 
   const items: Logical[] = []
@@ -91,10 +94,23 @@ export async function ingestTopic(service: Service, topicId: string): Promise<{ 
   push('study_note', note?.study_note, null)
   push('key_points', note?.key_points, null)
   push('exam_tips', note?.exam_tips, null)
-  push('official_source', note?.official_source, null)
+  const hasEnglishAdminSource = (adminSources ?? []).some(s => s.language === 'en' && s.content?.trim())
+  for (const s of adminSources ?? []) {
+    if (isSourceLanguage(s.language)) push(`official_source_${s.language}`, s.content, null)
+  }
+  if (!hasEnglishAdminSource) push('official_source', note?.official_source, null)
   push('model_answer', [note?.model_answer_5mark, note?.model_answer_10mark].filter(Boolean).join('\n\n'), null)
   for (const a of anns ?? []) push('annotation', a.content, a.user_id ?? null)
-  for (const s of usrc ?? []) push('user_source', s.content, s.user_id ?? null)
+  const usersWithEnglishSource = new Set<string>()
+  for (const s of userSources ?? []) {
+    if (isSourceLanguage(s.language)) {
+      if (s.language === 'en' && s.user_id) usersWithEnglishSource.add(s.user_id)
+      push(`user_source_${s.language}`, s.content, s.user_id ?? null)
+    }
+  }
+  for (const s of legacyUserSources ?? []) {
+    if (!s.user_id || !usersWithEnglishSource.has(s.user_id)) push('user_source', s.content, s.user_id ?? null)
+  }
 
   // Merge into one logical source per (source_type, user) so replace-per-source is clean.
   const groups = new Map<string, Logical>()

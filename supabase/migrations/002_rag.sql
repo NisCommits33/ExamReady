@@ -5,7 +5,7 @@ create extension if not exists vector;
 
 create table if not exists public.content_chunks (
   id uuid primary key default gen_random_uuid(),
-  source_type text not null,          -- study_note|key_points|exam_tips|model_answer|official_source|annotation|user_source
+  source_type text not null,          -- study_note|key_points|exam_tips|model_answer|official_source_*|annotation|user_source_*
   topic_id uuid references public.topics(id) on delete cascade,
   user_id uuid references auth.users(id) on delete cascade,  -- set for per-user sources; null for shared
   content text not null,

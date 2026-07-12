@@ -18,14 +18,18 @@ export async function POST(req: Request) {
     if (!adminId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     // Topics that have any embeddable content.
-    const [{ data: notes }, { data: srcs }, { data: anns }] = await Promise.all([
+    const [{ data: notes }, { data: adminSrcs }, { data: legacySrcs }, { data: userSrcs }, { data: anns }] = await Promise.all([
       service.from('topic_notes').select('topic_id'),
+      service.from('topic_source_files').select('topic_id'),
       service.from('user_topic_sources').select('topic_id'),
+      service.from('user_topic_source_files').select('topic_id'),
       service.from('user_annotations').select('topic_id').eq('annotation_type', 'note'),
     ])
     const topicIds = Array.from(new Set([
       ...(notes ?? []).map(n => n.topic_id),
-      ...(srcs ?? []).map(s => s.topic_id),
+      ...(adminSrcs ?? []).map(s => s.topic_id),
+      ...(legacySrcs ?? []).map(s => s.topic_id),
+      ...(userSrcs ?? []).map(s => s.topic_id),
       ...(anns ?? []).map(a => a.topic_id),
     ].filter(Boolean))) as string[]
 

@@ -15,12 +15,14 @@ interface Props {
   header?: React.ReactNode
   /** Treat single newlines in the original content as line breaks (for raw pasted text). */
   preserveBreaks?: boolean
+  /** Prefix applied to generated heading IDs in the original content. */
+  headingIdPrefix?: string
 }
 
 type View = 'original' | 'simplified' | 'elaborated'
 interface Source { title: string; uri: string }
 
-export function SimplifiableContent({ content, topicName, header, preserveBreaks = false }: Props) {
+export function SimplifiableContent({ content, topicName, header, preserveBreaks = false, headingIdPrefix }: Props) {
   const [view, setView] = useState<View>('original')
   const [simplified, setSimplified] = useState<string | null>(null)
   const [elaborated, setElaborated] = useState<string | null>(null)
@@ -139,7 +141,7 @@ export function SimplifiableContent({ content, topicName, header, preserveBreaks
           )}
         </div>
       ) : (
-        <Markdown preserveBreaks={preserveBreaks}>{content}</Markdown>
+        <Markdown preserveBreaks={preserveBreaks} headingIdPrefix={headingIdPrefix}>{content}</Markdown>
       )}
     </div>
   )

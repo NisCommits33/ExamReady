@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { assertSuperAdmin } from '@/lib/admin'
+import { isSourceLanguage } from '@/lib/language'
 import { createServiceClient } from '@/lib/supabase/server'
 
 export async function POST(req: Request) {
@@ -108,17 +109,36 @@ export async function POST(req: Request) {
       case 'getTopicSource': {
         const { topicId } = body
         if (!topicId) return NextResponse.json({ error: 'Missing topicId' }, { status: 400 })
-        const { data } = await service.from('topic_notes').select('official_source').eq('topic_id', topicId).maybeSingle()
-        return NextResponse.json({ source: data?.official_source ?? '' })
+        const [{ data: sources }, { data: legacy }] = await Promise.all([
+          service.from('topic_source_files').select('language,content,file_name').eq('topic_id', topicId),
+          service.from('topic_notes').select('official_source').eq('topic_id', topicId).maybeSingle(),
+        ])
+        const byLanguage: Record<string, { content: string; file_name: string | null }> = {}
+        for (const row of sources ?? []) {
+          if (isSourceLanguage(row.language)) byLanguage[row.language] = { content: row.content, file_name: row.file_name ?? null }
+        }
+        if (!byLanguage.en && legacy?.official_source?.trim()) {
+          byLanguage.en = { content: legacy.official_source, file_name: 'legacy-official-source.md' }
+        }
+        return NextResponse.json({ sources: byLanguage, source: byLanguage.en?.content ?? '', legacySource: legacy?.official_source ?? '' })
       }
       case 'setTopicSource': {
-        const { topicId, source } = body
+        const { topicId, source, fileName } = body
         if (!topicId) return NextResponse.json({ error: 'Missing topicId' }, { status: 400 })
-        const value = typeof source === 'string' && source.trim() ? source.trim() : null
-        const { error } = await service.from('topic_notes').upsert(
-          { topic_id: topicId, official_source: value, updated_at: new Date().toISOString() },
-          { onConflict: 'topic_id' },
-        )
+        const language = isSourceLanguage(body.language) ? body.language : 'en'
+        const value = typeof source === 'string' ? source.trim() : ''
+        const { error } = value
+          ? await service.from('topic_source_files').upsert(
+            {
+              topic_id: topicId,
+              language,
+              content: value,
+              file_name: typeof fileName === 'string' && fileName.trim() ? fileName.trim() : null,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'topic_id,language' },
+          )
+          : await service.from('topic_source_files').delete().eq('topic_id', topicId).eq('language', language)
         if (error) throw error
         return NextResponse.json({ ok: true })
       }

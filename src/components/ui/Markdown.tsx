@@ -1,6 +1,6 @@
 'use client'
 
-import { memo } from 'react'
+import { memo, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
@@ -12,31 +12,58 @@ interface MarkdownProps {
   compact?: boolean
   /** Treat single newlines as line breaks — useful for raw pasted/plain text. */
   preserveBreaks?: boolean
+  /** Prefix applied to generated heading IDs so readers can deep-link within one rendered document. */
+  headingIdPrefix?: string
+}
+
+function nodeText(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(nodeText).join('')
+  return ''
+}
+
+function slugifyHeading(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'section'
 }
 
 // Memoized: prevents ReactMarkdown from re-rendering (and reconciling away injected
 // highlight <mark> nodes) when an unrelated parent state changes.
-export const Markdown = memo(function Markdown({ children, className, compact = false, preserveBreaks = false }: MarkdownProps) {
+export const Markdown = memo(function Markdown({ children, className, compact = false, preserveBreaks = false, headingIdPrefix }: MarkdownProps) {
   // Markdown collapses single newlines; for plain pasted text keep them as hard breaks
   // (two trailing spaces) while leaving blank-line paragraph breaks intact.
   const content = preserveBreaks ? children.replace(/(?<!\n)\n(?!\n)/g, '  \n') : children
+  const headingCounts = new Map<string, number>()
+  const getHeadingId = (heading: ReactNode) => {
+    if (!headingIdPrefix) return undefined
+    const base = slugifyHeading(nodeText(heading))
+    const count = headingCounts.get(base) ?? 0
+    headingCounts.set(base, count + 1)
+    return `${headingIdPrefix}-${base}${count ? `-${count + 1}` : ''}`
+  }
+
   return (
     <div className={cn(compact && 'text-sm', className)}>
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
         h1: ({ children }) => (
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-6 mb-3 first:mt-0 pb-2 border-b border-gray-200 dark:border-[#30363D]">
+          <h1 id={getHeadingId(children)} className="scroll-mt-24 text-xl font-bold text-gray-900 dark:text-gray-100 mt-6 mb-3 first:mt-0 pb-2 border-b border-gray-200 dark:border-[#30363D]">
             {children}
           </h1>
         ),
         h2: ({ children }) => (
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-5 mb-2 first:mt-0">
+          <h2 id={getHeadingId(children)} className="scroll-mt-24 text-lg font-semibold text-gray-800 dark:text-gray-200 mt-5 mb-2 first:mt-0">
             {children}
           </h2>
         ),
         h3: ({ children }) => (
-          <h3 className="text-base font-semibold text-[var(--brand-600)] mt-4 mb-1.5 first:mt-0">
+          <h3 id={getHeadingId(children)} className="scroll-mt-24 text-base font-semibold text-[var(--brand-600)] mt-4 mb-1.5 first:mt-0">
             {children}
           </h3>
         ),

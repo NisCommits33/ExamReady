@@ -5,7 +5,13 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import { getExamPromptContext } from '@/lib/exam'
 import { retrieve, ragGroundingBlock, citationsFromPassages } from '@/lib/rag'
+import { getTopicSource, sourceGroundingBlock } from '@/lib/source'
 import { isSourceLanguage } from '@/lib/language'
+
+function citationExcerpt(content: string, maxChars = 360): string {
+  const compact = content.replace(/\s+/g, ' ').trim()
+  return compact.length > maxChars ? `${compact.slice(0, maxChars).trim()}...` : compact
+}
 
 export async function POST(req: Request) {
   const blocked = await quotaGuard(); if (blocked) return blocked
@@ -34,16 +40,36 @@ export async function POST(req: Request) {
 
   // RAG: retrieve passages relevant to the question; fall back to the naive note slice if empty.
   const service = await createServiceClient()
+  const language = isSourceLanguage(sourceLanguage) ? sourceLanguage : null
   const passages = await retrieve(service, lastUser, {
     topicId,
     userId: user?.id ?? null,
-    language: isSourceLanguage(sourceLanguage) ? sourceLanguage : null,
+    language,
     k: 6,
   })
-  const citations = citationsFromPassages(passages)
+  const sourceFallback = topicId && passages.length === 0
+    ? await getTopicSource(supabase, topicId, { language: language ?? 'en' })
+    : null
+  const citations = passages.length > 0
+    ? citationsFromPassages(passages)
+    : sourceFallback
+      ? [{
+        id: `source-fallback-${topicId}`,
+        index: 1,
+        sourceType: 'topic_source',
+        title: language === 'ne' ? 'Current topic source · Nepali' : 'Current topic source · English',
+        fileName: null,
+        language,
+        topicId: topicId ?? null,
+        sectionPath: [],
+        excerpt: citationExcerpt(sourceFallback),
+        similarity: 0,
+      }]
+      : []
   const grounding = passages.length > 0
     ? ragGroundingBlock(passages)
-    : (noteFallback ? `Study note context:\n${noteFallback}` : '')
+    : (sourceFallback ? sourceGroundingBlock(sourceFallback) : '')
+      || (noteFallback ? `Study note context:\n${noteFallback}` : '')
 
   const system = `You are an expert AI study assistant for the ${examCtx} exam.
 ${topicContext}

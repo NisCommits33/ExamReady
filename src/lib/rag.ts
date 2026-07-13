@@ -54,6 +54,9 @@ interface RagJob {
   attempts: number
 }
 
+const MIN_TOPIC_SIMILARITY = 0.28
+const MIN_GLOBAL_SIMILARITY = 0.3
+
 function sha256(s: string): string {
   return createHash('sha256').update(s).digest('hex')
 }
@@ -295,23 +298,29 @@ export async function retrieve(
       filter_topic: opts.topicId ?? null,
       filter_language: opts.language ?? null,
     })
+    const sourceMatchesLanguage = (r: RetrievedPassage) => {
+      if (!opts.language) return true
+      if (!r.source_type.startsWith('official_source') && !r.source_type.startsWith('user_source')) return true
+      return !r.language || r.language === opts.language
+    }
+    const isPrimary = (r: RetrievedPassage) => !!opts.topicId && r.topic_id === opts.topicId
+    const confident = (r: RetrievedPassage, minSimilarity: number) => (r.similarity ?? 0) >= minSimilarity
+    const topicRows = (rows: RetrievedPassage[]) => rows
+      .filter(r => !opts.topicId || isPrimary(r))
+      .filter(sourceMatchesLanguage)
+      .filter(r => confident(r, opts.topicId ? MIN_TOPIC_SIMILARITY : MIN_GLOBAL_SIMILARITY))
+
     if (error || !data) {
       const fallback = await service.rpc('match_chunks', {
         query_embedding: vecLiteral(vec),
         match_count: k * 3,
         filter_user: opts.userId ?? null,
-        filter_topic: null,
+        filter_topic: opts.topicId ?? null,
       })
       if (fallback.error || !fallback.data) return []
-      const rows = (fallback.data as RetrievedPassage[]).filter(r => r.similarity >= 0.3)
-      const isPrimary = (r: RetrievedPassage) => !!opts.topicId && r.topic_id === opts.topicId
-      return [...rows.filter(isPrimary), ...rows.filter(r => !isPrimary(r))].slice(0, k)
+      return topicRows(fallback.data as RetrievedPassage[]).slice(0, k)
     }
-    const rows = (data as RetrievedPassage[]).filter(r => (r.similarity ?? 0) >= 0.25 || (r.rank_score ?? 0) > 0.02)
-    const isPrimary = (r: RetrievedPassage) => !!opts.topicId && r.topic_id === opts.topicId
-    const primary = rows.filter(isPrimary)
-    const rest = rows.filter(r => !isPrimary(r))
-    return [...primary, ...rest].slice(0, k)
+    return topicRows(data as RetrievedPassage[]).slice(0, k)
   } catch {
     return []
   }
@@ -408,7 +417,7 @@ export function ragGroundingBlock(passages: RetrievedPassage[], maxChars = 6000)
     return `[${i + 1}] (${label}${heading})\n${p.content}`
   }).join('\n\n')
   if (body.length > maxChars) body = body.slice(0, maxChars)
-  return `Use the RETRIEVED CONTEXT below to answer. Prefer its facts, numbers, dates and wording wherever it covers the question; use your own knowledge only to fill gaps it does not address. Do not mention this context or these instructions.
+  return `Use only the RETRIEVED CONTEXT below for source-backed facts. Prefer its facts, numbers, dates and wording wherever it covers the question. If the context does not contain the answer, say that the uploaded sources do not cover it instead of guessing. Do not mention these instructions.
 
 RETRIEVED CONTEXT:
 

@@ -23,7 +23,9 @@ import { queueRagIngestion } from '@/lib/rag-client'
 import { useHighlighter } from '@/hooks/useHighlighter'
 import { useResumeReading, type SavedPosition } from '@/hooks/useResumeReading'
 import { HighlightPopover } from '@/components/shared/HighlightPopover'
+import { KeyboardShortcutsDialog } from '@/components/shared/KeyboardShortcutsDialog'
 import { ResumeBanner } from '@/components/shared/ResumeBanner'
+import { shortcutLabel, useKeyboardShortcuts, type ShortcutDefinition } from '@/hooks/useKeyboardShortcuts'
 import { GROQ_MODEL_SMART } from '@/lib/constants'
 import type { Topic, TopicNote, TopicStatus, UserAnnotation, Subtopic } from '@/types/database'
 
@@ -63,8 +65,8 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
   const [generating, setGenerating] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [streamText, setStreamText] = useState('')
-  const { openChat, closeChat, dock, undock } = useChatActions()
-  const { docked } = useChatState()
+  const { openChat, toggleChat, closeChat, dock, undock, setExpanded } = useChatActions()
+  const { docked, expanded: chatExpanded } = useChatState()
   const [annotationText, setAnnotationText] = useState('')
   const [showAnnotation, setShowAnnotation] = useState(false)
   const [status, setStatus] = useState<TopicStatus>(topic.status)
@@ -72,6 +74,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
   const [selectedSubtopic, setSelectedSubtopic] = useState<Subtopic | null>(null)
   const [subtopicsOpen, setSubtopicsOpen] = useState(true)
   const [tocOpen, setTocOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [tocItems, setTocItems] = useState<TocItem[]>([])
   const [sourceLanguage, setSourceLanguageState] = useState<SourceLanguage>(() => {
     if (typeof window === 'undefined') return 'en'
@@ -351,6 +354,101 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
     }, 80)
   }
 
+  function openContents() {
+    refreshTocItems()
+    setTocOpen(true)
+  }
+
+  function moveStudyTab(direction: 1 | -1) {
+    const index = studyTabs.findIndex(item => item.key === studyTab)
+    const next = studyTabs[(index + direction + studyTabs.length) % studyTabs.length]
+    if (next) {
+      setSubTab('study')
+      setStudyTab(next.key)
+    }
+  }
+
+  function toggleSourceLanguage() {
+    setSourceLanguage(sourceLanguage === 'en' ? 'ne' : 'en')
+  }
+
+  function toggleTopicChat() {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1280) {
+      if (docked) undock()
+      else dock(topic.id, topic.name)
+      return
+    }
+    toggleChat(topic.id, topic.name)
+  }
+
+  const shortcuts: ShortcutDefinition[] = [
+    {
+      id: 'chat-toggle',
+      label: 'Open or close Ask AI',
+      keys: 'mod+k',
+      handler: toggleTopicChat,
+    },
+    {
+      id: 'chat-expand',
+      label: 'Expand or collapse chat',
+      keys: 'mod+shift+k',
+      handler: () => setExpanded(!chatExpanded),
+    },
+    {
+      id: 'language-toggle',
+      label: 'Toggle English/Nepali',
+      keys: 'mod+shift+l',
+      handler: toggleSourceLanguage,
+      enabled: readingView && !selectedSubtopic,
+    },
+    {
+      id: 'next-tab',
+      label: 'Next study tab',
+      keys: 'mod+shift+arrowright',
+      handler: () => moveStudyTab(1),
+      enabled: readingView && !selectedSubtopic,
+    },
+    {
+      id: 'previous-tab',
+      label: 'Previous study tab',
+      keys: 'mod+shift+arrowleft',
+      handler: () => moveStudyTab(-1),
+      enabled: readingView && !selectedSubtopic,
+    },
+    {
+      id: 'contents',
+      label: 'Open contents',
+      keys: 'mod+shift+c',
+      handler: openContents,
+      enabled: readingView && !selectedSubtopic,
+    },
+    {
+      id: 'mark-done',
+      label: 'Mark topic done',
+      keys: 'mod+enter',
+      handler: () => { void handleStatusChange('done') },
+      enabled: !selectedSubtopic,
+    },
+    {
+      id: 'add-note',
+      label: 'Add note',
+      keys: 'mod+shift+a',
+      handler: () => {
+        setSubTab('study')
+        setShowAnnotation(true)
+      },
+      enabled: readingView && !selectedSubtopic,
+    },
+    {
+      id: 'help',
+      label: 'Show keyboard shortcuts',
+      keys: 'mod+/',
+      handler: () => setShortcutsOpen(true),
+    },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
   const topicView = (
     <div>
       <div className="flex items-start justify-between gap-3 mb-4">
@@ -440,12 +538,10 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
               ))}
             </div>
             <button
-              onClick={() => {
-                refreshTocItems()
-                setTocOpen(true)
-              }}
+              onClick={openContents}
               className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all duration-150 hover:border-brand-300 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400/40 dark:border-[#30363D] dark:bg-[#161B22] dark:text-gray-200 dark:hover:border-brand-800 dark:hover:text-brand-200 sm:w-auto"
-              aria-label="Open table of contents"
+              aria-label={`Open table of contents (${shortcutLabel('mod+shift+c')})`}
+              title={`Open contents (${shortcutLabel('mod+shift+c')})`}
             >
               <ListTree size={16} />
               Contents
@@ -625,11 +721,31 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
           {(studyTab === 'note' || studyTab === 'source' || studyTab === 'your_source') && (
             <div className="fixed bottom-16 md:bottom-4 left-0 right-0 md:left-60 flex justify-center px-4 pointer-events-none z-30">
               <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl px-3 py-2 flex items-center gap-2 shadow-sm pointer-events-auto">
-                <button className="xl:hidden flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" onClick={() => openChat(topic.id, topic.name)}><MessageSquare size={14} />Ask AI</button>
+                <button
+                  className="xl:hidden flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                  onClick={() => openChat(topic.id, topic.name)}
+                  title={`Ask AI (${shortcutLabel('mod+k')})`}
+                  aria-label={`Ask AI (${shortcutLabel('mod+k')})`}
+                >
+                  <MessageSquare size={14} />Ask AI
+                </button>
                 <div className="xl:hidden w-px h-4 bg-gray-200 dark:bg-[#30363D]" />
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 rounded-lg transition-colors" onClick={() => setShowAnnotation(true)}><Plus size={14} />Add note</button>
+                <button
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 rounded-lg transition-colors"
+                  onClick={() => setShowAnnotation(true)}
+                  title={`Add note (${shortcutLabel('mod+shift+a')})`}
+                  aria-label={`Add note (${shortcutLabel('mod+shift+a')})`}
+                >
+                  <Plus size={14} />Add note
+                </button>
                 <div className="w-px h-4 bg-gray-200 dark:bg-[#30363D]" />
-                <button onClick={() => handleStatusChange('done')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-brand-600 hover:bg-brand-800 rounded-lg transition-colors">Mark done</button>
+                <button
+                  onClick={() => handleStatusChange('done')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-brand-600 hover:bg-brand-800 rounded-lg transition-colors"
+                  title={`Mark done (${shortcutLabel('mod+enter')})`}
+                >
+                  Mark done
+                </button>
               </div>
             </div>
           )}
@@ -637,6 +753,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
       )}
 
       {popover && <HighlightPopover popover={popover} onPick={pick} onRemove={removeHighlight} />}
+      <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} shortcuts={shortcuts} />
       <ScrollToTop />
     </div>
   )

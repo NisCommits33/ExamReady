@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { ArrowLeft, MessageSquare, Plus, Upload, Loader2, Pencil, BookOpenText, Trash2, X, ListTree } from 'lucide-react'
-import { useChatActions } from '@/components/ai/ChatProvider'
+import { useChatActions, useChatState } from '@/components/ai/ChatProvider'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { StatusToggle } from '@/components/shared/StatusToggle'
@@ -21,7 +21,9 @@ import { queueRagIngestion } from '@/lib/rag-client'
 import { SimplifiableContent } from '@/components/shared/SimplifiableContent'
 import { ScrollToTop } from '@/components/shared/ScrollToTop'
 import { SourceMeta } from '@/components/shared/SourceMeta'
+import { KeyboardShortcutsDialog } from '@/components/shared/KeyboardShortcutsDialog'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { shortcutLabel, useKeyboardShortcuts, type ShortcutDefinition } from '@/hooks/useKeyboardShortcuts'
 import { HIGHLIGHT_COLORS, HL_MARK_SELECTOR, applyHighlights, clearHighlights, describeSelection, type StoredHighlight } from '@/lib/highlight'
 import type { Topic, TopicNote, UserAnnotation, TopicStatus, ReadingPosition } from '@/types/database'
 
@@ -67,13 +69,15 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
   const [note, setNote] = useState<TopicNote | null>(initialNote)
   const [annotations, setAnnotations] = useState(initialAnnotations)
   const [status, setStatus] = useState<TopicStatus>(topic.status)
-  const { openChat } = useChatActions()
+  const { openChat, toggleChat, setExpanded } = useChatActions()
+  const { expanded: chatExpanded } = useChatState()
   const [generating, setGenerating] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [streamText, setStreamText] = useState('')
   const [annotationText, setAnnotationText] = useState('')
   const [showAnnotation, setShowAnnotation] = useState(false)
   const [tocOpen, setTocOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [tocItems, setTocItems] = useState<TocItem[]>([])
   const [sourceLanguage, setSourceLanguageState] = useState<SourceLanguage>(() => {
     if (typeof window === 'undefined') return 'en'
@@ -485,6 +489,80 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
     }, 80)
   }
 
+  function openContents() {
+    refreshTocItems()
+    setTocOpen(true)
+  }
+
+  function moveTab(direction: 1 | -1) {
+    const index = tabs.findIndex(item => item.key === tab)
+    const next = tabs[(index + direction + tabs.length) % tabs.length]
+    if (next) setTab(next.key)
+  }
+
+  function toggleSourceLanguage() {
+    setSourceLanguage(sourceLanguage === 'en' ? 'ne' : 'en')
+  }
+
+  const shortcuts: ShortcutDefinition[] = [
+    {
+      id: 'chat-toggle',
+      label: 'Open or close Ask AI',
+      keys: 'mod+k',
+      handler: () => toggleChat(topic.id, topic.name),
+    },
+    {
+      id: 'chat-expand',
+      label: 'Expand or collapse chat',
+      keys: 'mod+shift+k',
+      handler: () => setExpanded(!chatExpanded),
+    },
+    {
+      id: 'language-toggle',
+      label: 'Toggle English/Nepali',
+      keys: 'mod+shift+l',
+      handler: toggleSourceLanguage,
+    },
+    {
+      id: 'next-tab',
+      label: 'Next study tab',
+      keys: 'mod+shift+arrowright',
+      handler: () => moveTab(1),
+    },
+    {
+      id: 'previous-tab',
+      label: 'Previous study tab',
+      keys: 'mod+shift+arrowleft',
+      handler: () => moveTab(-1),
+    },
+    {
+      id: 'contents',
+      label: 'Open contents',
+      keys: 'mod+shift+c',
+      handler: openContents,
+    },
+    {
+      id: 'mark-done',
+      label: 'Mark topic done',
+      keys: 'mod+enter',
+      handler: () => { void handleStatusChange('done') },
+    },
+    {
+      id: 'add-note',
+      label: 'Add note',
+      keys: 'mod+shift+a',
+      handler: () => setShowAnnotation(true),
+    },
+    {
+      id: 'help',
+      label: 'Show keyboard shortcuts',
+      keys: 'mod+/',
+      handler: () => setShortcutsOpen(true),
+    },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
@@ -576,12 +654,10 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
           ))}
         </div>
         <button
-            onClick={() => {
-              refreshTocItems()
-              setTocOpen(true)
-            }}
+          onClick={openContents}
           className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all duration-150 hover:border-brand-300 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400/40 dark:border-[#30363D] dark:bg-[#161B22] dark:text-gray-200 dark:hover:border-brand-800 dark:hover:text-brand-200 sm:w-auto"
-          aria-label="Open table of contents"
+          aria-label={`Open table of contents (${shortcutLabel('mod+shift+c')})`}
+          title={`Open contents (${shortcutLabel('mod+shift+c')})`}
         >
           <ListTree size={16} />
           Contents
@@ -618,6 +694,8 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
           </div>
         </DialogContent>
       </Dialog>
+
+      <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} shortcuts={shortcuts} />
 
       {/* Tab content */}
       <div ref={readerRef} onMouseUp={onReaderMouseUp}>
@@ -897,6 +975,8 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
             <button
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
               onClick={() => openChat(topic.id, topic.name)}
+              title={`Ask AI (${shortcutLabel('mod+k')})`}
+              aria-label={`Ask AI (${shortcutLabel('mod+k')})`}
             >
               <MessageSquare size={14} />Ask AI
             </button>
@@ -904,6 +984,8 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
             <button
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 rounded-lg transition-colors"
               onClick={() => setShowAnnotation(true)}
+              title={`Add note (${shortcutLabel('mod+shift+a')})`}
+              aria-label={`Add note (${shortcutLabel('mod+shift+a')})`}
             >
               <Plus size={14} />Add note
             </button>
@@ -911,6 +993,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
             <button
               onClick={() => handleStatusChange('done')}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-brand-600 hover:bg-brand-800 rounded-lg transition-colors"
+              title={`Mark done (${shortcutLabel('mod+enter')})`}
             >
               Mark done
             </button>

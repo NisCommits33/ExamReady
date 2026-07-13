@@ -27,6 +27,7 @@ interface ChatStateValue {
 /** Stable callbacks — never change identity, so consumers don't re-render on stream updates. */
 interface ChatActions {
   openChat: (topicId?: string, topicName?: string) => void
+  toggleChat: (topicId?: string, topicName?: string) => void
   /** Scope the thread to a topic for an inline surface, without opening the drawer. */
   scopeChat: (topicId?: string, topicName?: string) => void
   /** Scope to a topic AND show the desktop right-rail. */
@@ -93,6 +94,22 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setTopicName(nextTopicName)
     setOpen(true)
   }, [commit])
+
+  const toggleChat = useCallback((nextTopicId?: string, nextTopicName?: string) => {
+    if (open) {
+      setOpen(false)
+      setExpanded(false)
+      triggerRef.current?.focus?.()
+      triggerRef.current = null
+      return
+    }
+    triggerRef.current = (document.activeElement as HTMLElement) ?? null
+    if (topicIdRef.current !== nextTopicId) commit([])
+    topicIdRef.current = nextTopicId
+    setTopicId(nextTopicId)
+    setTopicName(nextTopicName)
+    setOpen(true)
+  }, [commit, open])
 
   const scopeChat = useCallback((nextTopicId?: string, nextTopicName?: string) => {
     // Same scoping/reset as openChat, but for an always-visible inline surface — no drawer.
@@ -200,8 +217,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, [streaming, run])
 
   const actions = useMemo<ChatActions>(
-    () => ({ openChat, scopeChat, dock, undock, setExpanded, closeChat, clear, send, stop, regenerate }),
-    [openChat, scopeChat, dock, undock, setExpanded, closeChat, clear, send, stop, regenerate],
+    () => ({ openChat, toggleChat, scopeChat, dock, undock, setExpanded, closeChat, clear, send, stop, regenerate }),
+    [openChat, toggleChat, scopeChat, dock, undock, setExpanded, closeChat, clear, send, stop, regenerate],
   )
   const state = useMemo<ChatStateValue>(
     () => ({ open, docked, expanded, topicId, topicName, messages, streaming }),

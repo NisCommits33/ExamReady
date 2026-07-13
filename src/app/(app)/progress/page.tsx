@@ -1,13 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
-import { format } from 'date-fns'
+import { addDays, format } from 'date-fns'
 import { ProgressClient } from '@/components/progress/ProgressClient'
 import { TOPIC_WITH_PROGRESS, flattenTopics } from '@/lib/topics'
+import { getStudySummary } from '@/lib/study-summary'
 
 export default async function ProgressPage() {
   const supabase = await createClient()
   const today = format(new Date(), 'yyyy-MM-dd')
+  const summaryFrom = format(addDays(new Date(), -29), 'yyyy-MM-dd')
 
-  const [{ data: rawTopics }, { data: stats }, { data: attempts }, { data: drills }, { count: dueCount }, { data: reps }, { count: explainCount }] = await Promise.all([
+  const [{ data: rawTopics }, { data: stats }, { data: attempts }, { data: drills }, { count: dueCount }, { data: reps }, { count: explainCount }, studySummary] = await Promise.all([
     supabase.from('topics').select(TOPIC_WITH_PROGRESS).order('paper').order('section').order('topic_number'),
     supabase.from('iq_stats').select('*'),
     supabase.from('iq_attempts').select('is_correct,confidence').order('attempted_at', { ascending: false }).limit(200),
@@ -15,6 +17,7 @@ export default async function ProgressPage() {
     supabase.from('flashcard_reviews').select('card_key', { count: 'exact', head: true }).lte('due_date', today),
     supabase.from('recall_reps').select('topic_id,streak').order('created_at', { ascending: false }).limit(500),
     supabase.from('explanations').select('id', { count: 'exact', head: true }),
+    getStudySummary(supabase, { from: summaryFrom, to: today }),
   ])
 
   // Latest streak per topic → how many topics have reached recall-by-doing "fluency" (3+ in a row).
@@ -44,6 +47,7 @@ export default async function ProgressPage() {
       dueReviews={dueCount ?? 0}
       fluentTopics={fluentTopics}
       explanationCount={explainCount ?? 0}
+      studySummary={studySummary}
     />
   )
 }

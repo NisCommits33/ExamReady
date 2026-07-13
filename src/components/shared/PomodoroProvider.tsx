@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback, us
 import { Play, Pause, RotateCcw, SkipForward, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { recordStudyEvent } from '@/lib/study-events'
 
 type Phase = 'work' | 'short' | 'long'
 interface Durations { work: number; short: number; long: number }
@@ -132,6 +133,14 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     const { phase: cur, completedWork: done, durations: d } = stateRef.current
     playBeep()
     const { phase: np, completedWork: nc } = nextPhase(cur, done)
+    if (cur === 'work') {
+      void recordStudyEvent({
+        eventType: 'pomodoro_focus',
+        source: 'pomodoro',
+        durationS: d.work * 60,
+        metadata: { completedWork: done + 1 },
+      })
+    }
     const msg = cur === 'work' ? `Focus done — time for a ${np === 'long' ? 'long' : 'short'} break` : 'Break over — back to focus'
     toast.success(msg)
     notify(PHASE_LABEL[np], msg)

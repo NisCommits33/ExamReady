@@ -7,7 +7,7 @@ import { IQ_QUESTION_TYPES } from '@/lib/constants'
 import Link from 'next/link'
 import { Sparkles, Lightbulb, Dumbbell } from 'lucide-react'
 import { cn, relativeDate, coveragePct } from '@/lib/utils'
-import type { Topic, IQStats, DrillResult } from '@/types/database'
+import type { Topic, IQStats, DrillResult, StudySummary } from '@/types/database'
 import { daysToExam } from '@/lib/utils'
 
 interface ProgressClientProps {
@@ -21,6 +21,7 @@ interface ProgressClientProps {
   dueReviews: number
   fluentTopics: number
   explanationCount: number
+  studySummary: StudySummary
 }
 
 const SECTION_META: Record<string, { label: string; color: string; fallback: string }> = {
@@ -29,7 +30,7 @@ const SECTION_META: Record<string, { label: string; color: string; fallback: str
   arff: { label: 'ARFF', color: 'bg-teal-50 text-teal-800',     fallback: 'Mock exam' },
 }
 
-export function ProgressClient({ topics, p1Coverage, p2Coverage, overallReadiness, iqStats, sureCalibration, drills, dueReviews, fluentTopics, explanationCount }: ProgressClientProps) {
+export function ProgressClient({ topics, p1Coverage, p2Coverage, overallReadiness, iqStats, sureCalibration, drills, dueReviews, fluentTopics, explanationCount, studySummary }: ProgressClientProps) {
   const [paperFilter, setPaperFilter] = useState<'all' | 1 | 2>('all')
   const [showAll, setShowAll] = useState(false)
 
@@ -123,6 +124,8 @@ export function ProgressClient({ topics, p1Coverage, p2Coverage, overallReadines
           </div>
         </div>
       )}
+
+      <StudyAnalytics summary={studySummary} />
 
       {/* Topic coverage */}
       <div className="bg-white border border-gray-200 rounded-xl p-4">
@@ -231,6 +234,92 @@ export function ProgressClient({ topics, p1Coverage, p2Coverage, overallReadines
             {sureCalibration < 70 && ' Consider slowing down on questions you feel sure about.'}
             {sureCalibration >= 70 && ' Your confidence is well-calibrated.'}
           </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StudyAnalytics({ summary }: { summary: StudySummary }) {
+  const daily = summary.dailyMinutes.slice(-14)
+  const maxDaily = Math.max(1, ...daily.map(item => item.minutes))
+  const accuracy = summary.practiceAccuracy.slice(-7)
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <p className="text-sm font-medium text-gray-900">Study analytics</p>
+        <span className="text-xs text-gray-400 tabular-nums">{Math.round(summary.actualMinutes)}m in range</span>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+        {[
+          ['Focus sessions', summary.focusSessions],
+          ['Topics touched', summary.topicsTouched],
+          ['Planned', `${summary.plannedMinutes}m`],
+          ['Streak', `${summary.currentStreak}d`],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+            <p className="text-[11px] text-gray-400">{label}</p>
+            <p className="mt-1 text-lg font-semibold text-gray-900 tabular-nums">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {daily.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs font-medium text-gray-500 mb-2">Daily minutes</p>
+          <div className="flex items-end gap-1.5 h-24">
+            {daily.map(item => (
+              <div key={item.date} className="flex-1 min-w-0 flex flex-col items-center gap-1">
+                <div className="w-full rounded-t bg-brand-400" style={{ height: `${Math.max(6, (item.minutes / maxDaily) * 84)}px` }} />
+                <span className="text-[10px] text-gray-400 tabular-nums">{item.date.slice(5)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-2">Time by topic</p>
+          <div className="space-y-2">
+            {summary.topicMinutes.length > 0 ? summary.topicMinutes.slice(0, 6).map(item => (
+              <div key={item.topicId ?? item.topicName} className="flex items-center gap-2">
+                <p className="text-xs text-gray-700 flex-1 truncate">{item.topicName}</p>
+                <span className="text-xs font-medium text-gray-900 tabular-nums">{Math.round(item.minutes)}m</span>
+              </div>
+            )) : <p className="text-xs text-gray-400">No tracked topic time yet.</p>}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-2">Practice accuracy</p>
+          <div className="space-y-2">
+            {accuracy.length > 0 ? accuracy.map(item => (
+              <div key={item.date} className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-11 tabular-nums">{item.date.slice(5)}</span>
+                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className={cn('h-full', item.pct >= 70 ? 'bg-success-400' : item.pct >= 50 ? 'bg-warning-400' : 'bg-danger-400')} style={{ width: `${item.pct}%` }} />
+                </div>
+                <span className="text-xs text-gray-700 w-9 text-right tabular-nums">{item.pct}%</span>
+              </div>
+            )) : <p className="text-xs text-gray-400">No tracked practice yet.</p>}
+          </div>
+        </div>
+      </div>
+
+      {summary.neglectedTopics.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <p className="text-xs font-medium text-gray-500 mb-2">Neglected topics</p>
+          <div className="space-y-2">
+            {summary.neglectedTopics.slice(0, 5).map(topic => (
+              <Link key={topic.id} href={`/topics/${topic.id}`} className="flex items-center gap-2 text-xs hover:bg-gray-50 rounded-md py-1.5">
+                <span className="text-gray-700 flex-1 truncate">{topic.name}</span>
+                <span className="text-gray-400 flex-shrink-0">{topic.reason}</span>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
     </div>

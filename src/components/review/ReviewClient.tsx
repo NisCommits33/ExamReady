@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { schedule, dueBucket, type Grade } from '@/lib/spaced-repetition'
 import { reviewRow, REVIEW_CONFLICT } from '@/lib/review-cards'
+import { recordStudyEvent } from '@/lib/study-events'
 import type { CardSource } from '@/types/database'
 
 interface ReviewCard {
@@ -68,6 +69,14 @@ export function ReviewClient({ initialCards }: { initialCards: ReviewCard[] }) {
       .from('flashcard_reviews')
       .upsert(reviewRow(card, sched), { onConflict: REVIEW_CONFLICT })
     if (error) toast.error('Could not save review progress')
+    else {
+      void recordStudyEvent({
+        topicId: card.topic_id,
+        eventType: 'review',
+        source: 'review',
+        metadata: { grade: g, cardKey: card.card_key, cardSource: card.source },
+      })
+    }
     setSaving(false)
   }
 

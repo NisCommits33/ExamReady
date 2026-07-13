@@ -25,6 +25,8 @@ import { KeyboardShortcutsDialog } from '@/components/shared/KeyboardShortcutsDi
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { shortcutLabel, useKeyboardShortcuts, type ShortcutDefinition } from '@/hooks/useKeyboardShortcuts'
 import { HIGHLIGHT_COLORS, HL_MARK_SELECTOR, applyHighlights, clearHighlights, describeSelection, type StoredHighlight } from '@/lib/highlight'
+import { recordStudyEvent } from '@/lib/study-events'
+import { useStudyActivityTracker } from '@/hooks/useStudyActivityTracker'
 import type { Topic, TopicNote, UserAnnotation, TopicStatus, ReadingPosition } from '@/types/database'
 
 type Tab = 'source' | 'your_source' | 'note' | 'keypoints' | 'tips' | 'recall' | 'explain' | 'drill'
@@ -112,6 +114,8 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
   const [uploadingKeyPoints, setUploadingKeyPoints] = useState(false)
   const [savingKeyPoints, setSavingKeyPoints] = useState(false)
   const keyPointsFileInputRef = useRef<HTMLInputElement>(null)
+
+  useStudyActivityTracker({ topicId: topic.id, tab, enabled: READING_TABS.has(tab) && !editingSource && !editingKeyPoints })
 
   function setSourceLanguage(language: SourceLanguage) {
     setSourceLanguageState(language)
@@ -278,6 +282,12 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
         model_used: GROQ_MODEL_SMART,
         updated_at: new Date().toISOString(),
       })
+      void recordStudyEvent({
+        topicId: topic.id,
+        eventType: 'ai_note',
+        source: 'ai',
+        metadata: { action: 'generate_note', model: GROQ_MODEL_SMART },
+      })
       setNote(prev => ({ ...(prev ?? {} as TopicNote), study_note: full }))
       toast.success('Study note generated — extracting key points…')
 
@@ -310,6 +320,9 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
     setStatus(s)
     const supabase = createClient()
     await supabase.from('user_topic_progress').upsert({ topic_id: topic.id, status: s }, { onConflict: 'user_id,topic_id' })
+    if (s === 'done') {
+      void recordStudyEvent({ topicId: topic.id, eventType: 'mark_done', source: 'manual', metadata: { status: s } })
+    }
     toast.success('Status updated')
     fetch('/api/ai/replan-schedule', { method: 'POST' }).catch(() => {})
   }

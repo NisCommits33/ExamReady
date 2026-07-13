@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { notifyTokens, tokensFromRes } from '@/lib/notify-tokens'
 import { seedWeakCards } from '@/lib/review-cards'
+import { recordStudyEvent } from '@/lib/study-events'
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
 import type { Topic, Explanation } from '@/types/database'
 
@@ -64,6 +65,18 @@ export function ExplainTab({ topic, keyPoints }: { topic: Topic; keyPoints: stri
 
       // Feed each knowledge gap back into the spaced-repetition queue.
       if (data.gaps?.length) await seedWeakCards(topic.id, data.gaps, 'feynman_gap')
+      void recordStudyEvent({
+        topicId: topic.id,
+        eventType: 'practice',
+        source: 'practice',
+        metadata: {
+          activity: 'feynman',
+          correct: data.clarity_score ?? 0,
+          total: 10,
+          scorePct: Math.round((data.clarity_score ?? 0) * 10),
+          gaps: data.gaps?.length ?? 0,
+        },
+      })
       toast.success(`Clarity ${data.clarity_score}/10${data.gaps?.length ? ` · ${data.gaps.length} gap card${data.gaps.length > 1 ? 's' : ''} added to review` : ''}`)
     } catch {
       toast.error('Could not evaluate your explanation')

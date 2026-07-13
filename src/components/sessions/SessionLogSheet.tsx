@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 import { useTopics } from '@/hooks/useTopics'
+import { recordStudyEvent } from '@/lib/study-events'
 
 interface SessionLogSheetProps {
   open: boolean
@@ -37,12 +38,12 @@ export function SessionLogSheet({ open, onOpenChange }: SessionLogSheetProps) {
     const supabase = createClient()
     const today = new Date().toISOString().split('T')[0]
 
-    const { error } = await supabase.from('sessions').insert({
+    const { data: session, error } = await supabase.from('sessions').insert({
       date: today,
       topic_id: topicId,
       duration_mins: duration,
       notes: notes || null,
-    })
+    }).select('id').single()
 
     if (error) {
       toast.error('Failed to log session')
@@ -51,6 +52,13 @@ export function SessionLogSheet({ open, onOpenChange }: SessionLogSheetProps) {
     }
 
     await supabase.from('user_topic_progress').upsert({ topic_id: topicId, last_studied: today }, { onConflict: 'user_id,topic_id' })
+    await recordStudyEvent({
+      topicId,
+      eventType: 'manual_session',
+      source: 'manual',
+      durationS: duration * 60,
+      metadata: { notes: notes || null, sessionId: session?.id ?? null },
+    })
 
     toast.success('Session logged · AI updating schedule…')
     onOpenChange(false)

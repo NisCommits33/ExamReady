@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { cardKey, schedule, isDue, type Grade } from '@/lib/spaced-repetition'
 import { reviewRow, REVIEW_CONFLICT } from '@/lib/review-cards'
+import { recordStudyEvent } from '@/lib/study-events'
 import type { Topic } from '@/types/database'
 
 const GRADES: { grade: Grade; label: string; cls: string }[] = [
@@ -122,6 +123,14 @@ export function Flashcards({ topics, topicKeyPoints }: Props) {
       { onConflict: REVIEW_CONFLICT },
     )
     if (error) toast.error('Could not save review progress')
+    else {
+      void recordStudyEvent({
+        topicId: card.topicId,
+        eventType: 'review',
+        source: 'review',
+        metadata: { grade, cardKey: card.key, cardSource: 'keypoint' },
+      })
+    }
     setSaving(false)
   }
 

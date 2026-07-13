@@ -3,6 +3,8 @@ export type PaperType = 1 | 2
 export type SectionType = 'A' | 'B'
 export type ShiftType = 'A' | 'B'
 export type SessionType = 'study' | 'drill' | 'review' | 'iq'
+export type StudyEventType = 'reading' | 'pomodoro_focus' | 'practice' | 'review' | 'ai_note' | 'manual_session' | 'mark_done'
+export type StudyEventSource = 'reader' | 'pomodoro' | 'manual' | 'practice' | 'review' | 'ai'
 export type AnnotationType = 'note' | 'highlight' | 'question'
 export type QuestionType = '5mark' | '10mark'
 export type IQCategory = 'verbal' | 'non_verbal' | 'arithmetic'
@@ -50,6 +52,35 @@ export interface Session {
   duration_mins: number
   notes: string | null
   created_at: string
+}
+
+export interface StudyEvent {
+  id: string
+  user_id: string
+  topic_id: string | null
+  subtopic_id: string | null
+  event_type: StudyEventType
+  source: StudyEventSource
+  started_at: string
+  ended_at: string | null
+  duration_s: number
+  metadata: Record<string, unknown>
+  created_at: string
+  topics?: { name: string; paper: PaperType; section: SectionType } | null
+}
+
+export interface StudySummary {
+  minutesStudied: number
+  focusSessions: number
+  topicsTouched: number
+  plannedMinutes: number
+  actualMinutes: number
+  currentStreak: number
+  dailyMinutes: { date: string; minutes: number }[]
+  weeklyMinutes: { weekStart: string; minutes: number }[]
+  topicMinutes: { topicId: string | null; topicName: string; minutes: number }[]
+  practiceAccuracy: { date: string; correct: number; total: number; pct: number }[]
+  neglectedTopics: { id: string; name: string; paper: PaperType; ai_priority: number; lastStudied: string | null; reason: string }[]
 }
 
 export interface PlannedSession {

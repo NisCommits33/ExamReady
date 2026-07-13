@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardClient } from '@/components/dashboard/DashboardClient'
+import { getStudySummary } from '@/lib/study-summary'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -15,7 +16,7 @@ export default async function DashboardPage() {
   sessionWindowStart.setUTCFullYear(sessionWindowStart.getUTCFullYear() - 1)
   const sessionWindowStartDate = sessionWindowStart.toISOString().split('T')[0]
 
-  const [shift, planned, sessions, topics, report, activity, dueCards] = await Promise.all([
+  const [shift, planned, sessions, topics, report, activity, dueCards, studySummary] = await Promise.all([
     supabase.from('shifts').select('type,study_start,study_end,shift_types(study_start,study_end)').eq('date', today).maybeSingle(),
     supabase.from('planned_sessions').select('*,topics(name,paper,section)').eq('scheduled_date', today).order('slot_time'),
     supabase.from('sessions').select('duration_mins').gte('date', sessionWindowStartDate),
@@ -23,6 +24,7 @@ export default async function DashboardPage() {
     supabase.from('weekly_reports').select('id,week_start,content,risk_topics,generated_at').order('week_start', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('activity_log').select('id,action,topic_id,meta,created_at').order('created_at', { ascending: false }).limit(6),
     supabase.from('flashcard_reviews').select('card_key', { count: 'exact', head: true }).lte('due_date', today),
+    getStudySummary(supabase, { from: today, to: today }),
   ])
 
   const allTopics = (topics.data ?? []).map(t => {
@@ -59,6 +61,7 @@ export default async function DashboardPage() {
       weeklyReport={report.data}
       activities={activity.data ?? []}
       dueCardCount={dueCards.count ?? 0}
+      studySummary={studySummary}
     />
   )
 }

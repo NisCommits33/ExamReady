@@ -26,7 +26,9 @@ import { HighlightPopover } from '@/components/shared/HighlightPopover'
 import { KeyboardShortcutsDialog } from '@/components/shared/KeyboardShortcutsDialog'
 import { ResumeBanner } from '@/components/shared/ResumeBanner'
 import { shortcutLabel, useKeyboardShortcuts, type ShortcutDefinition } from '@/hooks/useKeyboardShortcuts'
+import { useStudyActivityTracker } from '@/hooks/useStudyActivityTracker'
 import { GROQ_MODEL_SMART } from '@/lib/constants'
+import { recordStudyEvent } from '@/lib/study-events'
 import type { Topic, TopicNote, TopicStatus, UserAnnotation, Subtopic } from '@/types/database'
 
 type SubTab = 'study' | 'practice'
@@ -104,6 +106,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
   const readerRef = useRef<HTMLDivElement>(null)
   const [resume, setResume] = useState<SavedPosition | null>(null)
   const readingView = subTab === 'study' || !practiceTab
+  useStudyActivityTracker({ topicId: topic.id, tab: studyTab, enabled: readingView && !selectedSubtopic })
   const { popover, onMouseUp, pick, removeHighlight } = useHighlighter({
     readerRef, tab: studyTab, enabled: readingView, topicId: topic.id,
     annotations, setAnnotations, reapplyKey: topicNote,
@@ -199,6 +202,12 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
       notifyTokens(tokens)
       const supabase = createClient()
       await supabase.from('topic_notes').upsert({ topic_id: topic.id, study_note: full, generated_at: new Date().toISOString(), model_used: GROQ_MODEL_SMART, updated_at: new Date().toISOString() })
+      void recordStudyEvent({
+        topicId: topic.id,
+        eventType: 'ai_note',
+        source: 'ai',
+        metadata: { action: 'generate_note', model: GROQ_MODEL_SMART },
+      })
       setTopicNote(prev => ({ ...(prev ?? {} as TopicNote), study_note: full }))
       toast.success('Study note generated — extracting key points…')
       setExtracting(true)
@@ -214,6 +223,9 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
     setStatus(s); onStatusChange(topic.id, s)
     const supabase = createClient()
     await supabase.from('user_topic_progress').upsert({ topic_id: topic.id, status: s }, { onConflict: 'user_id,topic_id' })
+    if (s === 'done') {
+      void recordStudyEvent({ topicId: topic.id, eventType: 'mark_done', source: 'manual', metadata: { status: s } })
+    }
     toast.success('Status updated')
     fetch('/api/ai/replan-schedule', { method: 'POST' }).catch(() => {})
   }

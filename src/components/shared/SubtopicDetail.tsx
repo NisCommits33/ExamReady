@@ -15,8 +15,10 @@ import { readStream } from '@/lib/sse'
 import { notifyTokens } from '@/lib/notify-tokens'
 import { useHighlighter } from '@/hooks/useHighlighter'
 import { useResumeReading, type SavedPosition } from '@/hooks/useResumeReading'
+import { useStudyActivityTracker } from '@/hooks/useStudyActivityTracker'
 import { HighlightPopover } from '@/components/shared/HighlightPopover'
 import { ResumeBanner } from '@/components/shared/ResumeBanner'
+import { recordStudyEvent } from '@/lib/study-events'
 import type { Topic, Subtopic, UserAnnotation } from '@/types/database'
 
 type SubTab = 'study' | 'practice' | 'flashcards'
@@ -37,6 +39,7 @@ export function SubtopicDetail({ topic, subtopic, onBack }: { topic: Topic; subt
   const readerRef = useRef<HTMLDivElement>(null)
   const [resume, setResume] = useState<SavedPosition | null>(null)
   const storageKey = `read:sub:${subtopic.id}`
+  useStudyActivityTracker({ topicId: topic.id, subtopicId: subtopic.id, tab: studyTab, enabled: subTab === 'study' })
 
   useEffect(() => {
     let active = true
@@ -76,6 +79,13 @@ export function SubtopicDetail({ topic, subtopic, onBack }: { topic: Topic; subt
       notifyTokens(tokens)
       const supabase = createClient()
       await supabase.from('subtopics').update({ study_note: full, generated_at: new Date().toISOString() }).eq('id', subtopic.id)
+      void recordStudyEvent({
+        topicId: topic.id,
+        subtopicId: subtopic.id,
+        eventType: 'ai_note',
+        source: 'ai',
+        metadata: { action: 'generate_subtopic_note' },
+      })
       setNote(prev => ({ ...prev, study_note: full }))
       toast.success('Study note ready — extracting key points…')
       try {

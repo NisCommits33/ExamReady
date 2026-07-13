@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/ui/Markdown'
 import { notifyTokens, tokensFromRes } from '@/lib/notify-tokens'
 import { seedWeakCards, gradeTopicFromScore } from '@/lib/review-cards'
+import { recordStudyEvent } from '@/lib/study-events'
 import type { Topic } from '@/types/database'
 
 interface Result {
@@ -41,6 +42,18 @@ export function RecallTab({ topic, keyPoints }: { topic: Topic; keyPoints: strin
       const weak = [...(data.missed ?? []), ...(data.wrong ?? [])]
       if (weak.length) await seedWeakCards(topic.id, weak, 'recall_miss')
       await gradeTopicFromScore(topic.id, topic.name, data.score_pct ?? 0)
+      void recordStudyEvent({
+        topicId: topic.id,
+        eventType: 'practice',
+        source: 'practice',
+        metadata: {
+          activity: 'active_recall',
+          correct: data.score_pct ?? 0,
+          total: 100,
+          scorePct: data.score_pct ?? 0,
+          missed: weak.length,
+        },
+      })
       toast.success(`Recalled ~${data.score_pct ?? 0}%${weak.length ? ` · ${weak.length} card${weak.length > 1 ? 's' : ''} added to review` : ''}`)
     } catch {
       toast.error('Could not check your recall')

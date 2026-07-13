@@ -11,7 +11,7 @@ import { QuickActions } from './QuickActions'
 import { ActivityFeed } from './ActivityFeed'
 import { DailyReview } from './DailyReview'
 import { SessionLogSheet } from '@/components/sessions/SessionLogSheet'
-import type { PlannedSession, Topic, WeeklyReport, ActivityLog } from '@/types/database'
+import type { PlannedSession, Topic, WeeklyReport, ActivityLog, StudySummary } from '@/types/database'
 
 interface Props {
   name: string
@@ -26,6 +26,7 @@ interface Props {
   weeklyReport: WeeklyReport | null
   activities: ActivityLog[]
   dueCardCount: number
+  studySummary: StudySummary
 }
 
 export function DashboardClient(props: Props) {
@@ -71,6 +72,8 @@ export function DashboardClient(props: Props) {
         totalHours={props.totalHours}
       />
 
+      <TodayStudyCard summary={props.studySummary} />
+
       {/* AI Rescue alert */}
       {props.flaggedTopics.length > 0 && (
         <RescueCard topics={props.flaggedTopics} />
@@ -106,6 +109,35 @@ export function DashboardClient(props: Props) {
       <QuickActions onLogSession={() => setSessionOpen(true)} />
 
       <SessionLogSheet open={sessionOpen} onOpenChange={setSessionOpen} />
+    </div>
+  )
+}
+
+function TodayStudyCard({ summary }: { summary: StudySummary }) {
+  const values = [
+    { label: 'Studied', value: `${Math.round(summary.actualMinutes)}m` },
+    { label: 'Focus', value: summary.focusSessions },
+    { label: 'Topics', value: summary.topicsTouched },
+    { label: 'Plan', value: `${Math.round(summary.actualMinutes)}/${summary.plannedMinutes}m` },
+    { label: 'Streak', value: `${summary.currentStreak}d` },
+  ]
+
+  return (
+    <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-[#30363D] rounded-xl p-4">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Today&apos;s study</p>
+        <Link href="/progress" className="text-xs font-medium text-brand-600 hover:text-brand-800 dark:text-brand-400 dark:hover:text-brand-300 transition-colors">
+          Analytics
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        {values.map(item => (
+          <div key={item.label} className="rounded-lg bg-gray-50 dark:bg-[#0D1117] border border-gray-100 dark:border-[#30363D] px-3 py-2">
+            <p className="text-[11px] text-gray-400">{item.label}</p>
+            <p className="mt-1 text-lg font-semibold tabular-nums text-gray-900 dark:text-gray-100">{item.value}</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

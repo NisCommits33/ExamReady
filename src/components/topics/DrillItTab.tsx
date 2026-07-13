@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { notifyTokens, tokensFromRes } from '@/lib/notify-tokens'
 import { upsertReviewCard } from '@/lib/review-cards'
+import { recordStudyEvent } from '@/lib/study-events'
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
 import type { Topic, TopicNote, RecallMode } from '@/types/database'
 
@@ -80,6 +81,20 @@ export function DrillItTab({ topic, note }: { topic: Topic; note: TopicNote | nu
         score: pct,
         passed,
         streak: newStreak,
+      })
+      void recordStudyEvent({
+        topicId: topic.id,
+        eventType: 'practice',
+        source: 'practice',
+        metadata: {
+          activity: 'recall_by_doing',
+          mode,
+          correct: data.score,
+          total: marks,
+          scorePct: pct,
+          passed,
+          streak: newStreak,
+        },
       })
 
       // A missed rep re-surfaces the topic in the spaced-repetition queue.

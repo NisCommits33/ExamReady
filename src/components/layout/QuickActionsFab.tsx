@@ -16,7 +16,7 @@ function haptic() {
  * desktop chat rail is docked, the button sits left of the rail and drops the (now
  * redundant) Ask AI action.
  */
-export function QuickActionsFab({ docked = false }: { docked?: boolean }) {
+export function QuickActionsFab({ docked = false, dockExpanded = false }: { docked?: boolean; dockExpanded?: boolean }) {
   const { openChat } = useChatActions()
   const { running, timeText, fabTint } = usePomodoro()
   const [expanded, setExpanded] = useState(false)
@@ -34,7 +34,10 @@ export function QuickActionsFab({ docked = false }: { docked?: boolean }) {
   function openTimer() { haptic(); setExpanded(false); setTimerOpen(true) }
 
   // Bottom-right anchor; shift left of the chat rail when it's docked (xl only).
-  const anchorX = cn('right-4 md:right-6', docked && 'xl:right-[calc(360px+1.5rem)]')
+  const anchorX = cn(
+    'right-4 md:right-6',
+    docked && (dockExpanded ? 'xl:right-[calc(520px+1.5rem)]' : 'xl:right-[calc(360px+1.5rem)]'),
+  )
 
   return (
     <>

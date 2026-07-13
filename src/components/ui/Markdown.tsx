@@ -73,22 +73,20 @@ export const Markdown = memo(function Markdown({ children, className, compact = 
           </p>
         ),
         ul: ({ children }) => (
-          <ul className={cn('space-y-1 mb-3 pl-4 text-gray-700 dark:text-gray-300', compact ? 'text-sm' : '')}>
+          <ul className={cn('space-y-1 mb-3 pl-5 list-disc marker:text-[var(--brand-600)] text-gray-700 dark:text-gray-300', compact ? 'text-sm' : '')}>
             {children}
           </ul>
         ),
         ol: ({ children }) => (
-          <ol className={cn('space-y-1 mb-3 pl-4 list-decimal', compact ? 'text-sm' : '')}>
+          <ol className={cn('space-y-1 mb-3 pl-5 list-decimal marker:text-[var(--brand-600)] text-gray-700 dark:text-gray-300', compact ? 'text-sm' : '')}>
             {children}
           </ol>
         ),
         li: ({ children }) => (
-          <li className="text-gray-700 dark:text-gray-300 leading-relaxed flex gap-2 items-start">
-            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[var(--brand-600)] shrink-0" />
-            <span>{children}</span>
+          <li className="text-gray-700 dark:text-gray-300 leading-relaxed pl-1">
+            {children}
           </li>
         ),
-        // Override li for ordered lists — no bullet dot
         strong: ({ children }) => (
           <strong className="font-semibold text-gray-900 dark:text-gray-100">{children}</strong>
         ),

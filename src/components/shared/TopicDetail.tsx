@@ -492,7 +492,7 @@ export function TopicDetail({ topic, onBack, onStatusChange, practiceTab, practi
               </div>
               {selectedOfficialSource ? (
                 <>
-                  <SimplifiableContent content={selectedOfficialSource} topicName={topic.name} headingIdPrefix={headingIdPrefix} />
+                  <SimplifiableContent content={selectedOfficialSource} topicName={topic.name} preserveBreaks headingIdPrefix={headingIdPrefix} />
                   {topicNote && sourceLanguage === 'en' && !officialSources.en && <SourceMeta note={topicNote} />}
                 </>
               ) : (

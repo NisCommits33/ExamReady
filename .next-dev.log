@@ -1,0 +1,16 @@
+
+> lokai@0.1.0 dev
+> cross-env NODE_OPTIONS=--max-http-header-size=32768 next dev
+
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.22:3000
+- Environments: .env.local
+✓ Ready in 1237ms
+Creating turbopack project {
+  dir: 'C:\\Users\\nees2\\OneDrive\\Desktop\\project\\ExamReady\\examready',
+  testMode: true
+}
+
+ GET /login 200 in 825ms (next.js: 306ms, proxy.ts: 8ms, application-code: 510ms)
+[?25h

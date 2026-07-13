@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Square, Loader2, MessageSquare, Copy, RefreshCw, Check, BookOpen } from 'lucide-react'
+import { Send, Square, Loader2, MessageSquare, Copy, RefreshCw, Check, BookOpen, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/ui/Markdown'
@@ -27,6 +27,7 @@ export function ChatConversation({ variant = 'drawer', autoFocusInput = false }:
   const { send, stop, regenerate } = useChatActions()
   const [input, setInput] = useState('')
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
+  const [openSources, setOpenSources] = useState<Set<number>>(() => new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -53,6 +54,15 @@ export function ChatConversation({ variant = 'drawer', autoFocusInput = false }:
     } catch {
       toast('Could not copy to clipboard')
     }
+  }
+
+  function toggleSources(idx: number) {
+    setOpenSources(prev => {
+      const next = new Set(prev)
+      if (next.has(idx)) next.delete(idx)
+      else next.add(idx)
+      return next
+    })
   }
 
   const isEmpty = messages.length === 0
@@ -90,6 +100,7 @@ export function ChatConversation({ variant = 'drawer', autoFocusInput = false }:
 
         {messages.map((msg, i) => {
           const isLastAssistant = msg.role === 'assistant' && i === messages.length - 1
+          const sourcesOpen = openSources.has(i)
           return (
             <div key={i} className={cn('flex gap-2 group', msg.role === 'user' && 'justify-end')}>
               {msg.role === 'assistant' && (
@@ -112,29 +123,38 @@ export function ChatConversation({ variant = 'drawer', autoFocusInput = false }:
                 </div>
                 {msg.role === 'assistant' && msg.citations?.length ? (
                   <div className="w-full space-y-1.5">
-                    <p className="flex items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                    <button
+                      type="button"
+                      onClick={() => toggleSources(i)}
+                      aria-expanded={sourcesOpen}
+                      className="flex min-h-9 items-center gap-1.5 rounded-md px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-[#1C2128] dark:hover:text-gray-200"
+                    >
                       <BookOpen size={12} />
-                      Sources used
-                    </p>
-                    <div className="space-y-1.5">
-                      {msg.citations.slice(0, 4).map((citation, citationIndex) => (
-                        <details
-                          key={`${citation.id || citation.title}-${citationIndex}`}
-                          className="rounded-lg border border-gray-200 bg-white/70 px-2.5 py-2 text-xs dark:border-[#30363D] dark:bg-[#0D1117]/80"
-                        >
-                          <summary className="cursor-pointer list-none text-gray-700 outline-none dark:text-gray-200">
-                            <span className="font-medium">{citation.title}</span>
-                            <span className="ml-1 text-gray-400">· {sourceTypeLabel(citation.sourceType)}</span>
-                          </summary>
-                          <p className="mt-1.5 line-clamp-4 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
-                            {citation.excerpt}
-                          </p>
-                          {citation.sectionPath?.length ? (
-                            <p className="mt-1 text-[10px] text-gray-400">{citation.sectionPath.join(' / ')}</p>
-                          ) : null}
-                        </details>
-                      ))}
-                    </div>
+                      <span>Sources used ({msg.citations.length})</span>
+                      <ChevronDown size={12} className={cn('transition-transform duration-150', sourcesOpen && 'rotate-180')} />
+                    </button>
+                    {sourcesOpen && (
+                      <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150 motion-reduce:animate-none">
+                        {msg.citations.slice(0, 4).map((citation, citationIndex) => (
+                          <details
+                            key={`${citation.id || citation.title}-${citationIndex}`}
+                            open={citationIndex === 0}
+                            className="rounded-lg border border-gray-200 bg-white/70 px-2.5 py-2 text-xs dark:border-[#30363D] dark:bg-[#0D1117]/80"
+                          >
+                            <summary className="cursor-pointer list-none text-gray-700 outline-none dark:text-gray-200">
+                              <span className="font-medium">{citation.title}</span>
+                              <span className="ml-1 text-gray-400">· {sourceTypeLabel(citation.sourceType)}</span>
+                            </summary>
+                            <p className="mt-1.5 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+                              {citation.excerpt}
+                            </p>
+                            {citation.sectionPath?.length ? (
+                              <p className="mt-1 text-[10px] text-gray-400">{citation.sectionPath.join(' / ')}</p>
+                            ) : null}
+                          </details>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : null}
                 {/* Assistant actions — copy always, regenerate on the last reply */}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, Trash2, MessageSquare } from 'lucide-react'
+import { X, Trash2, MessageSquare, Maximize2, Minimize2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useChatState, useChatActions } from './ChatProvider'
@@ -13,8 +13,8 @@ import { ChatConversation } from './ChatConversation'
  * <ChatConversation>, shared with the desktop inline pane.
  */
 export function ChatPanel() {
-  const { open, topicName, messages, streaming } = useChatState()
-  const { closeChat, clear } = useChatActions()
+  const { open, expanded, topicName, messages, streaming } = useChatState()
+  const { closeChat, clear, setExpanded } = useChatActions()
   const [kbInset, setKbInset] = useState(0) // px the on-screen keyboard covers (mobile)
   const [dragY, setDragY] = useState(0)      // px the sheet is dragged down (mobile swipe-to-dismiss)
   const dragStartRef = useRef<number | null>(null)
@@ -101,10 +101,13 @@ export function ChatPanel() {
           ...(dragY > 0 ? { transform: `translateY(${dragY}px)`, transition: 'none' } : {}),
         }}
         className={cn(
-          'fixed z-50 flex flex-col bg-white dark:bg-[#161B22] shadow-2xl',
-          'bottom-0 left-0 right-0 h-[88dvh] rounded-t-2xl',
-          'md:top-0 md:bottom-0 md:right-0 md:left-auto md:h-full md:w-[400px] md:rounded-none md:rounded-l-2xl',
-          'animate-in slide-in-from-bottom md:slide-in-from-right duration-200 ease-out motion-reduce:animate-none',
+          'fixed z-50 flex flex-col bg-white dark:bg-[#161B22] shadow-2xl transform-gpu will-change-transform',
+          'bottom-0 left-0 right-0 rounded-t-2xl transition-[height,width,border-radius,transform] duration-[250ms] ease-out',
+          expanded ? 'h-dvh rounded-none' : 'h-[88dvh]',
+          expanded
+            ? 'md:top-4 md:bottom-4 md:right-4 md:left-auto md:h-auto md:w-[min(680px,calc(100vw-2rem))] md:rounded-2xl'
+            : 'md:top-0 md:bottom-0 md:right-0 md:left-auto md:h-full md:w-[400px] md:rounded-none md:rounded-l-2xl',
+          'animate-in slide-in-from-bottom md:slide-in-from-right duration-[250ms] ease-out motion-reduce:animate-none motion-reduce:transition-none',
         )}
       >
         {/* Mobile drag handle */}
@@ -132,6 +135,14 @@ export function ChatPanel() {
             {topicName && <p className="text-xs text-gray-400 truncate">{topicName}</p>}
           </div>
           <button
+            onClick={() => setExpanded(!expanded)}
+            aria-label={expanded ? 'Collapse chat' : 'Expand chat'}
+            title={expanded ? 'Collapse chat' : 'Expand chat'}
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-[#1C2128] text-gray-400 transition-colors"
+          >
+            {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+          <button
             onClick={handleClear}
             disabled={isEmpty || streaming}
             aria-label="Clear conversation"
@@ -149,7 +160,7 @@ export function ChatPanel() {
           </button>
         </div>
 
-        <ChatConversation variant="drawer" autoFocusInput />
+        <ChatConversation variant="drawer" />
       </div>
     </>
   )

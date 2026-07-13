@@ -16,6 +16,8 @@ interface ChatStateValue {
   open: boolean
   /** True when the desktop right-rail (ChatDock) is showing. */
   docked: boolean
+  /** True when the chat surface is expanded for more reading room. */
+  expanded: boolean
   topicId?: string
   topicName?: string
   messages: ChatMessage[]
@@ -31,6 +33,7 @@ interface ChatActions {
   dock: (topicId?: string, topicName?: string) => void
   /** Hide the desktop right-rail (keeps the thread scoped). */
   undock: () => void
+  setExpanded: (expanded: boolean) => void
   closeChat: () => void
   clear: () => void
   send: (text: string) => void
@@ -63,6 +66,7 @@ const ERROR_MESSAGE = 'Sorry, something went wrong. Please try again.'
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   const [docked, setDocked] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const [topicId, setTopicId] = useState<string | undefined>(undefined)
   const [topicName, setTopicName] = useState<string | undefined>(undefined)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -110,6 +114,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const closeChat = useCallback(() => {
     setOpen(false)
+    setExpanded(false)
     triggerRef.current?.focus?.()
     triggerRef.current = null
   }, [])
@@ -195,12 +200,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, [streaming, run])
 
   const actions = useMemo<ChatActions>(
-    () => ({ openChat, scopeChat, dock, undock, closeChat, clear, send, stop, regenerate }),
-    [openChat, scopeChat, dock, undock, closeChat, clear, send, stop, regenerate],
+    () => ({ openChat, scopeChat, dock, undock, setExpanded, closeChat, clear, send, stop, regenerate }),
+    [openChat, scopeChat, dock, undock, setExpanded, closeChat, clear, send, stop, regenerate],
   )
   const state = useMemo<ChatStateValue>(
-    () => ({ open, docked, topicId, topicName, messages, streaming }),
-    [open, docked, topicId, topicName, messages, streaming],
+    () => ({ open, docked, expanded, topicId, topicName, messages, streaming }),
+    [open, docked, expanded, topicId, topicName, messages, streaming],
   )
 
   return (

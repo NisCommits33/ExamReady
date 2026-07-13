@@ -36,14 +36,17 @@ export function Shell(props: ShellProps) {
 
 function ShellBody({ children, examName = 'LOKAI', sections = [], isSuperAdmin = false, announcements = [] }: ShellProps) {
   const [sessionOpen, setSessionOpen] = useState(false)
-  const { docked } = useChatState()
+  const { docked, expanded } = useChatState()
 
   return (
     <div className="min-h-dvh bg-gray-100 dark:bg-[#0D1117]">
       <Sidebar onLogSession={() => setSessionOpen(true)} examName={examName} sections={sections} isSuperAdmin={isSuperAdmin} />
 
       {/* Reserve room for the docked chat rail on xl so content reflows instead of hiding behind it. */}
-      <main className={cn('md:ml-60 min-h-dvh pb-16 md:pb-0 transition-[margin] duration-200', docked && 'xl:mr-[360px]')}>
+      <main className={cn(
+        'md:ml-60 min-h-dvh pb-16 md:pb-0 transition-[margin] duration-200',
+        docked && (expanded ? 'xl:mr-[520px]' : 'xl:mr-[360px]'),
+      )}>
         <div className="max-w-[1080px] mx-auto px-4 md:px-8 py-6">
           <AnnouncementBanner announcements={announcements} />
           {children}
@@ -68,7 +71,7 @@ function ShellBody({ children, examName = 'LOKAI', sections = [], isSuperAdmin =
       {!isSuperAdmin && docked && <ChatDock />}
 
       {/* Combined Ask AI + Pomodoro timer control (students only) */}
-      {!isSuperAdmin && <QuickActionsFab docked={docked} />}
+      {!isSuperAdmin && <QuickActionsFab docked={docked} dockExpanded={expanded} />}
 
       {!isSuperAdmin && <SessionLogSheet open={sessionOpen} onOpenChange={setSessionOpen} />}
 

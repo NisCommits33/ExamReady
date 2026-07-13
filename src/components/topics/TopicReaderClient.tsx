@@ -632,7 +632,7 @@ export function TopicReaderClient({ topic, note: initialNote, annotations: initi
             </div>
             {selectedOfficialSource ? (
               <>
-                <Markdown headingIdPrefix={headingIdPrefix}>{selectedOfficialSource}</Markdown>
+                <SimplifiableContent content={selectedOfficialSource} topicName={topic.name} preserveBreaks headingIdPrefix={headingIdPrefix} />
                 {note && sourceLanguage === 'en' && !officialSources.en && <SourceMeta note={note} />}
               </>
             ) : (
